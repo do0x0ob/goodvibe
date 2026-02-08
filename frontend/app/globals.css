@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas-default: #FBF9F6;
+  --color-canvas-subtle: #F3F1F0;
+  --color-canvas-sand: #EAE4DC;
+  --color-canvas-sage: #C8D8D5;
+  --color-canvas-slate: #DFE3E8;
+  --color-canvas-rose: #F4E4E6;
+  
+  --color-ink-900: #191919;
+  --color-ink-700: #404040;
+  --color-ink-500: #6B6B6B;
+  --color-ink-300: #A3A3A3;
+  
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #FAFAFA;
+  --color-surface-active: #F5F5F5;
+  --color-surface-sand: #DCD6CE;
+  --color-surface-slate: #CDD5DD;
+  --color-surface-rose: #EDD5D8;
+  
+  --color-accent-primary: #D97757;
+  --color-accent-secondary: #E6E4DF;
+  
+  --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+@layer base {
+  body {
+    @apply antialiased bg-canvas-default text-ink-900;
+  }
+  
+  /* Force white text color for ConnectButton when wallet is connected */
+  [data-dapp-kit-connect-button] button {
+    color: white !important;
+  }
+  
+  /* Ensure connected state also has white text */
+  [data-dapp-kit-connect-button] [role="button"],
+  [data-dapp-kit-connect-button] div {
+    color: white !important;
+  }
+}
