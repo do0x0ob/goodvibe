@@ -133,27 +133,15 @@ export function useProjects() {
   return useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      console.log('useProjects: Fetching projects from API...');
-      try {
-        const response = await axios.get('/api/projects');
-        console.log('useProjects: API response:', response.data);
-        const projects = response.data;
-        
-        // Convert string back to BigInt
-        const convertedProjects = projects.map((p: any) => ({
-          ...p,
-          raisedAmount: BigInt(p.raisedAmount),
-          totalSupportAmount: p.totalSupportAmount ? BigInt(p.totalSupportAmount) : undefined,
-          createdAt: p.createdAt ? BigInt(p.createdAt) : undefined,
-          balance: p.balance ? BigInt(p.balance) : undefined,
-        })) as Project[];
-        
-        console.log('useProjects: Converted projects count:', convertedProjects.length);
-        return convertedProjects;
-      } catch (error) {
-        console.error('useProjects: Error fetching projects:', error);
-        throw error;
-      }
+      const response = await axios.get('/api/projects');
+      const projects = response.data;
+      return projects.map((p: any) => ({
+        ...p,
+        raisedAmount: BigInt(p.raisedAmount),
+        totalSupportAmount: p.totalSupportAmount ? BigInt(p.totalSupportAmount) : undefined,
+        createdAt: p.createdAt ? BigInt(p.createdAt) : undefined,
+        balance: p.balance ? BigInt(p.balance) : undefined,
+      })) as Project[];
     },
     // Cache for 5 minutes on client side as well
     staleTime: 5 * 60 * 1000,

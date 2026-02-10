@@ -105,7 +105,6 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
     } catch (error: any) {
       toast.dismiss();
       toast.error(`Failed to export: ${error.message}`);
-      console.error('[ExportSupporters] Error:', error);
     } finally {
       setExportingProjectId(null);
     }
@@ -115,17 +114,12 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
   const { data: myProjects = [], isLoading } = useQuery({
     queryKey: ['ownedProjects', userAddress],
     queryFn: async () => {
-      console.log('[MyProjectsManager] Fetching projects for:', userAddress);
-
       // 1. 獲取用戶擁有的所有 ProjectCap
       const capsResponse = await client.getOwnedObjects({
         owner: userAddress,
         filter: { StructType: `${PACKAGE_ID}::project::ProjectCap` },
         options: { showContent: true },
       });
-
-      console.log('[MyProjectsManager] Found ProjectCaps:', capsResponse.data.length);
-
       if (capsResponse.data.length === 0) {
         return [];
       }
@@ -163,19 +157,14 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
               isActive: projectData.isActive ?? true,
               createdAt: projectData.createdAt || BigInt(0),
             } as OwnedProjectData;
-          } catch (err) {
-            console.error('[MyProjectsManager] Error processing project:', err);
+          } catch {
             return null;
           }
         })
       );
 
       const validProjects = projects.filter((p): p is OwnedProjectData => p !== null);
-      
-      // 按創建時間排序（最新的在前）
       validProjects.sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
-
-      console.log('[MyProjectsManager] Returning projects:', validProjects.length);
       return validProjects;
     },
     enabled: !!userAddress && !!PACKAGE_ID,

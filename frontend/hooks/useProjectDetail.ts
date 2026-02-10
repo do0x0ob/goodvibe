@@ -38,17 +38,8 @@ export function useProjectDetail(projectId: string) {
   return useQuery({
     queryKey: ['projectDetail', projectId],
     queryFn: async () => {
-      console.log('[useProjectDetail] Fetching data for project:', projectId);
       const response = await axios.get<ProjectDetailData>(`/api/projects/${projectId}`);
-      
-      // 轉換 BigInt 字串回對象（如果需要）
-      const data = response.data;
-      console.log('[useProjectDetail] Received:', {
-        updatesCount: data.updates.length,
-        supportersCount: data.supporters.length,
-      });
-      
-      return data;
+      return response.data;
     },
     enabled: !!projectId,
     staleTime: 30000, // 30 seconds

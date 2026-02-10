@@ -28,8 +28,7 @@ sui client publish
 
 **Platform** - 平台初始化、統計追蹤  
 **Project** - 創建項目、支持/捐贈收益、創建者提取、發布更新  
-**SupportRecord** - 用戶支持記錄（持有 btcUSDC、捐贈收益給項目）  
-**Vault** - 金庫、存款/提款、捐贈比例配置
+**SupportRecord** - 用戶支持記錄（持有 btcUSDC、捐贈收益給項目）
 
 ## 技術特性
 

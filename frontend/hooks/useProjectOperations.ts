@@ -34,21 +34,16 @@ export function useProjectOperations() {
         loadingMessage: 'Creating project...',
         successMessage: 'Project created successfully!',
         errorMessage: 'Failed to create project',
-        onSuccess: async (digest) => {
-          console.log('[createProject] ✅ onSuccess callback triggered, digest:', digest);
-          // 刷新項目列表和用戶儀表板
+        onSuccess: async () => {
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['projects'] }),
             queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
           ]);
-          console.log('[createProject] ✅ All queries invalidated');
         }
       });
 
       return result;
-    } catch (error: any) {
-      // 不要在這裡再次顯示 toast，execute 已經處理了
-      console.error('[createProject] Error:', error);
+    } catch {
       return { success: false };
     }
   };
@@ -72,8 +67,7 @@ export function useProjectOperations() {
         loadingMessage: 'Posting update...',
         successMessage: 'Update posted successfully!',
         errorMessage: 'Failed to post update',
-        onSuccess: async (digest) => {
-          console.log('[postUpdate] ✅ onSuccess callback triggered, digest:', digest);
+          onSuccess: async () => {
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
             queryClient.invalidateQueries({ queryKey: ['projectUpdates', projectId] }),
@@ -82,9 +76,7 @@ export function useProjectOperations() {
       });
 
       return result;
-    } catch (error: any) {
-      // 不要在這裡再次顯示 toast
-      console.error('[postUpdate] Error:', error);
+    } catch {
       return { success: false };
     }
   };

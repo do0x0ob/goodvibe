@@ -134,12 +134,8 @@ const MOCK_PROJECTS: Project[] = [
 ];
 
 export async function GET() {
-    console.log('Fetching projects...');
     const now = Date.now();
-
-    // Return cached data if valid
     if (cachedProjects && (now - lastFetchTime < CACHE_TTL)) {
-        console.log('Returning cached projects');
         const serializedProjects = cachedProjects.map(p => ({
             ...p,
             raisedAmount: p.raisedAmount.toString(),
@@ -152,12 +148,9 @@ export async function GET() {
 
         // Prioritize real chain data if PACKAGE_ID is configured
         if (PACKAGE_ID) {
-            console.log('Fetching from chain with PACKAGE_ID:', PACKAGE_ID);
             try {
                 const chainProjects = await getAllProjects(suiClient, PACKAGE_ID);
-                realProjects = chainProjects.map((p) => {
-                    console.log(`Project ${p.title}: totalSupportAmount=${p.totalSupportAmount}, raisedAmount=${p.raisedAmount}, createdAt=${p.createdAt}`);
-                    return {
+                realProjects = chainProjects.map((p) => ({
                         id: p.id,
                         title: p.title,
                         description: p.description,
@@ -170,15 +163,10 @@ export async function GET() {
                         createdAt: p.createdAt,
                         isActive: p.isActive,
                         balance: p.balance,
-                    };
-                });
-                console.log(`Fetched ${realProjects.length} projects from chain`);
-            } catch (error) {
-                console.error('Error fetching projects from chain:', error);
-                // Continue to fallback logic below
+                    }));
+            } catch {
+                // fallback below
             }
-        } else {
-            console.log('PACKAGE_ID not configured, skipping chain fetch');
         }
 
         // Use real projects if available, otherwise fallback to mock
@@ -196,11 +184,8 @@ export async function GET() {
             createdAt: p.createdAt?.toString(),
             balance: p.balance?.toString(),
         }));
-
-        console.log('Returning projects:', serializedProjects.length);
         return NextResponse.json(serializedProjects);
-    } catch (error) {
-        console.error('Error fetching projects:', error);
+    } catch {
         // Fallback to mocks on error
         const serializedMocks = MOCK_PROJECTS.map(p => ({
             ...p,

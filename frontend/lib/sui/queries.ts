@@ -390,62 +390,32 @@ export async function getProjectSupportersFromEvents(
   packageId: string,
   projectId: string
 ): Promise<ProjectSupporter[]> {
-  console.log('[getProjectSupportersFromEvents] Starting query...', {
-    packageId: packageId.substring(0, 20) + '...',
-    projectId: projectId.substring(0, 20) + '...',
-  });
-  
   const baseType = `${packageId}::project::`;
   const allEvents: Array<{ type: string; parsed: any; timestamp: number }> = [];
 
   for (const eventType of SUPPORT_EVENT_TYPES) {
     try {
       const fullType = baseType + eventType;
-      console.log(`[getProjectSupportersFromEvents] Querying ${eventType}...`);
-      
       const res = await client.queryEvents({
         query: { MoveEventType: fullType },
         limit: 100,
         order: 'ascending',
       });
-      
-      console.log(`[getProjectSupportersFromEvents] ${eventType}: found ${res.data.length} total events`);
-      
       let matchedCount = 0;
       for (const e of res.data) {
         const parsed = e.parsedJson as any;
-        
-        // 詳細日誌第一個事件的結構
-        if (res.data.length > 0 && matchedCount === 0) {
-          console.log(`[getProjectSupportersFromEvents] Sample event structure:`, {
-            eventType,
-            project_id_in_event: parsed?.project_id,
-            project_id_to_match: projectId,
-            matches: parsed?.project_id === projectId,
-            eventTimestampMs: e.timestampMs,
-            parsedTimestamp: parsed?.timestamp,
-          });
-        }
-        
         if (parsed?.project_id !== projectId) continue;
-        
         matchedCount++;
         // 使用事件實際發生的時間（timestampMs），而不是事件內的 timestamp
         const ts = typeof e.timestampMs === 'string' ? parseInt(e.timestampMs, 10) : (e.timestampMs ?? 0);
         allEvents.push({ type: eventType, parsed, timestamp: ts });
       }
-      
-      console.log(`[getProjectSupportersFromEvents] ${eventType}: ${matchedCount} events matched project`);
-    } catch (err: any) {
-      console.error(`[getProjectSupportersFromEvents] Error querying ${eventType}:`, err.message);
+    } catch {
       continue;
     }
   }
 
-  console.log(`[getProjectSupportersFromEvents] Total matched events:`, allEvents.length);
-
   if (allEvents.length === 0) {
-    console.log('[getProjectSupportersFromEvents] No events found for this project. This project may not have any supporters yet.');
     return [];
   }
 
@@ -454,44 +424,26 @@ export async function getProjectSupportersFromEvents(
   const current: Record<string, { amount: bigint; lastUpdated: number }> = {};
   for (const { type, parsed, timestamp } of allEvents) {
     const addr = parsed?.supporter ?? '';
-    if (!addr) {
-      console.warn('[getProjectSupportersFromEvents] Event missing supporter address:', type);
-      continue;
-    }
-    
+    if (!addr) continue;
     switch (type) {
       case 'SupportStartedEvent':
         current[addr] = { amount: BigInt(parsed.amount ?? 0), lastUpdated: timestamp };
-        console.log(`[getProjectSupportersFromEvents] ${addr} started support: ${parsed.amount}`);
         break;
       case 'SupportIncreasedEvent':
         current[addr] = { amount: BigInt(parsed.new_total ?? 0), lastUpdated: timestamp };
-        console.log(`[getProjectSupportersFromEvents] ${addr} increased to: ${parsed.new_total}`);
         break;
       case 'SupportDecreasedEvent':
         current[addr] = { amount: BigInt(parsed.new_total ?? 0), lastUpdated: timestamp };
-        console.log(`[getProjectSupportersFromEvents] ${addr} decreased to: ${parsed.new_total}`);
         break;
       case 'SupportEndedEvent':
         delete current[addr];
-        console.log(`[getProjectSupportersFromEvents] ${addr} ended support`);
         break;
     }
   }
-
   const supporters = Object.entries(current)
     .filter(([, v]) => v.amount > BigInt(0))
     .map(([address, v]) => ({ address, amount: v.amount, lastUpdated: v.lastUpdated }))
     .sort((a, b) => b.lastUpdated - a.lastUpdated);
-
-  console.log('[getProjectSupportersFromEvents] Final supporters:', supporters.length);
-  if (supporters.length > 0) {
-    console.log('[getProjectSupportersFromEvents] Supporters list:', supporters.map(s => ({
-      address: s.address.substring(0, 10) + '...',
-      amount: s.amount.toString(),
-    })));
-  }
-  
   return supporters;
 }
 
@@ -512,8 +464,6 @@ export async function getProjectUpdates(
   packageId?: string
 ): Promise<ProjectUpdateData[]> {
   try {
-    console.log('[getProjectUpdates] Step 1: Fetching UpdatePostedEvents...');
-    
     // 首先從事件獲取時間戳映射
     const pkgId = packageId || process.env.NEXT_PUBLIC_PACKAGE_ID || '';
     const eventType = `${pkgId}::project::UpdatePostedEvent`;
@@ -545,29 +495,14 @@ export async function getProjectUpdates(
         timestampMap[updateId] = eventTimestamp;
       }
     }
-    
-    console.log('[getProjectUpdates] Found timestamp mappings:', Object.keys(timestampMap).length);
-    
-    console.log('[getProjectUpdates] Step 2: Fetching dynamic fields for project:', projectId);
-    
     const dynamicFields = await client.getDynamicFields({
       parentId: projectId,
     });
-
-    console.log('[getProjectUpdates] Found dynamic fields:', dynamicFields.data.length);
-
     const updates: ProjectUpdateData[] = [];
 
     for (const field of dynamicFields.data) {
       try {
         const name = (field as any).name;
-        const objectType = (field as any).objectType;
-        
-        console.log('[getProjectUpdates] Processing field:', { 
-          name: JSON.stringify(name), 
-          objectType 
-        });
-        
         // 解析 name - 它可能是字串或者包含 value 的對象
         let updateId: string;
         if (typeof name === 'string') {
@@ -582,87 +517,24 @@ export async function getProjectUpdates(
             updateId = String(nameVal);
           }
         } else {
-          console.log('[getProjectUpdates] Invalid name format, skipping');
           continue;
         }
-
-        console.log('[getProjectUpdates] Decoded updateId:', updateId);
-
         // 獲取 dynamic field 的完整內容
         const fieldObj = await client.getDynamicFieldObject({
           parentId: projectId,
           name: name,
         });
-
-        console.log('[getProjectUpdates] Field object:', {
-          hasData: !!fieldObj.data,
-          hasContent: !!(fieldObj.data?.content),
-          contentType: typeof fieldObj.data?.content,
-          dataStructure: fieldObj.data ? Object.keys(fieldObj.data) : []
-        });
-
-        if (!fieldObj.data) {
-          console.log('[getProjectUpdates] No data in field object, skipping');
-          continue;
-        }
-
+        if (!fieldObj.data) continue;
         const content = fieldObj.data.content as any;
-        
-        if (!content) {
-          console.log('[getProjectUpdates] No content in data, skipping');
-          continue;
-        }
-
-        // 檢查 content 的結構
-        console.log('[getProjectUpdates] Content structure:', {
-          type: content.type,
-          hasFields: !!content.fields,
-          dataType: content.dataType,
-          keys: Object.keys(content)
-        });
-
+        if (!content) continue;
         const fields = content.fields;
-        if (!fields) {
-          console.log('[getProjectUpdates] No fields in content, skipping');
-          continue;
-        }
-
-        console.log('[getProjectUpdates] Fields:', {
-          hasValue: !!fields.value,
-          hasTitle: !!fields.title,
-          hasContent: !!fields.content,
-          hasTimestamp: !!fields.timestamp,
-          hasAuthor: !!fields.author,
-          allKeys: Object.keys(fields)
-        });
-
+        if (!fields) continue;
         // Dynamic field structure: { id, name, value }
-        // The actual ProjectUpdate data is in the 'value' field
         const updateData = fields.value?.fields || fields;
-        
-        console.log('[getProjectUpdates] Update data:', {
-          hasTitle: !!updateData.title,
-          hasContent: !!updateData.content,
-          hasTimestamp: !!updateData.timestamp,
-          hasAuthor: !!updateData.author,
-        });
-
         const title = bytesToString(updateData.title);
         const body = bytesToString(updateData.content);
         const author = updateData.author ?? '';
-        
-        // 使用事件時間戳（如果有的話），否則使用合約內的時間戳
         const timestamp = timestampMap[updateId] ?? Number(updateData.timestamp ?? 0);
-
-        console.log('[getProjectUpdates] Parsed update:', { 
-          updateId, 
-          title: title.substring(0, 50), 
-          contentLength: body.length,
-          timestamp,
-          usingEventTimestamp: !!timestampMap[updateId],
-          author 
-        });
-
         updates.push({
           id: updateId,
           title,
@@ -670,23 +542,13 @@ export async function getProjectUpdates(
           timestamp,
           author,
         });
-      } catch (err: any) {
-        console.error('[getProjectUpdates] Error processing field:', {
-          error: err.message,
-          stack: err.stack
-        });
+      } catch {
         continue;
       }
     }
-
     updates.sort((a, b) => b.timestamp - a.timestamp);
-    console.log('[getProjectUpdates] Returning', updates.length, 'updates');
     return updates;
-  } catch (error: any) {
-    console.error('[getProjectUpdates] Error fetching updates:', {
-      error: error.message,
-      stack: error.stack
-    });
+  } catch {
     return [];
   }
 }

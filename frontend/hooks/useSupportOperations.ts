@@ -72,14 +72,9 @@ export function useSupportOperations() {
       return false;
     }
 
-    console.log('[startSupporting] Starting with:', { projectId, supportRecordId, amount: amount.toString() });
     setIsLoading(true);
-    
     try {
-      console.log('[startSupporting] Creating StableLayer client...');
       const stableClient = createStableLayerClient(account.address);
-      
-      console.log('[startSupporting] Building transaction...');
       const tx = await buildStartSupportingTx(
         stableClient,
         client,
@@ -88,9 +83,7 @@ export function useSupportOperations() {
         supportRecordId,
         amount
       );
-
-      console.log('[startSupporting] Transaction built, executing with toast...');
-      const { success, digest } = await executeTransactionWithToast(
+      const { success } = await executeTransactionWithToast(
         signAndExecute,
         tx,
         {
@@ -98,9 +91,7 @@ export function useSupportOperations() {
           successMessage: 'Successfully minted btcUSDC and started supporting!',
           errorMessage: 'Failed to start supporting',
           client,
-          onSuccess: async (digest) => {
-            console.log('[startSupporting] ✅ onSuccess callback triggered, digest:', digest);
-            // 刷新相關數據而不是重新加載整個頁面
+          onSuccess: async () => {
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
               queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
@@ -109,24 +100,15 @@ export function useSupportOperations() {
               queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
               queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
             ]);
-            console.log('[startSupporting] ✅ All queries invalidated');
           }
         }
       );
-
-      console.log('[startSupporting] executeTransactionWithToast returned:', { success, digest });
       return success;
     } catch (error: any) {
-      console.error('[startSupporting] Caught exception:', {
-        message: error.message,
-        stack: error.stack,
-        error,
-      });
       toast.error(error.message || 'Failed to start supporting');
       return false;
     } finally {
       setIsLoading(false);
-      console.log('[startSupporting] Finally block - isLoading set to false');
     }
   };
 
@@ -160,8 +142,7 @@ export function useSupportOperations() {
           successMessage: 'Support increased successfully',
           errorMessage: 'Failed to increase support',
           client,
-          onSuccess: async (digest) => {
-            console.log('[increaseSupport] ✅ onSuccess callback triggered, digest:', digest);
+          onSuccess: async () => {
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
               queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
@@ -170,14 +151,12 @@ export function useSupportOperations() {
               queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
               queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
             ]);
-            console.log('[increaseSupport] ✅ All queries invalidated');
           }
         }
       );
-
       return success;
     } catch (error: any) {
-      console.error('[increaseSupport] Error:', error);
+      toast.error((error as Error)?.message || 'Failed to increase support');
       return false;
     } finally {
       setIsLoading(false);
@@ -213,8 +192,7 @@ export function useSupportOperations() {
           successMessage: 'Support withdrawn successfully',
           errorMessage: 'Failed to withdraw support',
           client,
-          onSuccess: async (digest) => {
-            console.log('[withdrawSupport] ✅ onSuccess callback triggered, digest:', digest);
+          onSuccess: async () => {
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
               queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
@@ -223,15 +201,12 @@ export function useSupportOperations() {
               queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
               queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
             ]);
-            console.log('[withdrawSupport] ✅ All queries invalidated');
           }
         }
       );
-
       return success;
     } catch (error: any) {
-      console.error('[withdrawSupport] Error:', error);
-      // 不要在這裡再次顯示 toast
+      toast.error((error as Error)?.message || 'Failed to withdraw support');
       return false;
     } finally {
       setIsLoading(false);
@@ -257,22 +232,18 @@ export function useSupportOperations() {
           successMessage: 'Yield donated to project successfully!',
           errorMessage: 'Failed to donate yield',
           client,
-          onSuccess: async (digest) => {
-            console.log('[donateYield] ✅ onSuccess callback triggered, digest:', digest);
+          onSuccess: async () => {
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
               queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
               queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
             ]);
-            console.log('[donateYield] ✅ All queries invalidated');
           }
         }
       );
-
       return success;
     } catch (error: any) {
-      console.error('[donateYield] Error:', error);
-      // 不要在這裡再次顯示 toast
+      toast.error((error as Error)?.message || 'Failed to donate yield');
       return false;
     } finally {
       setIsLoading(false);

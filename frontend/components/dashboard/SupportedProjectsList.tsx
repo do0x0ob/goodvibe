@@ -41,7 +41,6 @@ export const SupportedProjectsList: React.FC<SupportedProjectsListProps> = ({ cl
               };
             }
           } catch (error) {
-            console.error('Failed to fetch project:', error);
           }
 
           return {

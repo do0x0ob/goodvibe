@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching support record:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch support record' },
       { status: 500 }

@@ -11,7 +11,7 @@ import { EmptyStateCard } from "@/components/dashboard/EmptyStateCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { Suspense } from "react";
 import { useDashboardData } from "@/hooks/useDashboardData";
 
 function HomeContent() {

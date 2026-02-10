@@ -49,7 +49,6 @@ export async function GET(
 
     return NextResponse.json(response);
   } catch (error: any) {
-    console.error('[API] Error fetching project details:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

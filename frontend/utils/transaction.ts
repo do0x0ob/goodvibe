@@ -57,22 +57,11 @@ async function resolveTransactionStatus(
   client?: SuiClient
 ): Promise<{ success: boolean; error?: string }> {
   const digest = result.digest;
-  
-  console.log('[resolveTransactionStatus] Checking result:', { 
-    digest: digest || 'NO_DIGEST',
-    hasEffects: !!result.effects,
-    rawEffects: !!result.rawEffects,
-  });
-  
   if (!digest) {
-    console.error('[resolveTransactionStatus] ❌ No digest');
     return { success: false, error: 'No transaction digest' };
   }
-
-  // 檢查 result 中是否已有 effects.status（部分錢包/SDK 會回傳）
   const directStatus = result.effects?.status?.status;
   if (directStatus) {
-    console.log('[resolveTransactionStatus] Direct status:', directStatus);
     if (directStatus === 'success') {
       return { success: true };
     }
@@ -81,15 +70,9 @@ async function resolveTransactionStatus(
       return { success: false, error };
     }
   }
-
-  // 沒有 direct status，用 client 等待並查詢鏈上結果
   if (!client) {
-    console.log('[resolveTransactionStatus] ✅ Have digest, no client - assuming success');
     return { success: true };
   }
-
-  console.log('[resolveTransactionStatus] Waiting for transaction...');
-
   try {
     const tx = await client.waitForTransaction({
       digest,
@@ -97,29 +80,13 @@ async function resolveTransactionStatus(
       timeout: 45_000,
       pollInterval: 1_500,
     });
-    
-    console.log('[resolveTransactionStatus] Got transaction:', {
-      digest: tx.digest,
-      hasEffects: !!tx.effects,
-      status: (tx as any).effects?.status,
-    });
-    
     const txStatus = (tx as any).effects?.status?.status;
-    
-    // 只有明確是 failure 才返回失敗
     if (txStatus === 'failure') {
       const error = (tx as any).effects?.status?.error || 'Transaction failed';
-      console.error('[resolveTransactionStatus] ❌ Chain confirmed failure:', error);
       return { success: false, error };
     }
-    
-    // success 或其他情況都視為成功（保守策略）
-    console.log('[resolveTransactionStatus] ✅ Chain result (not failure)');
     return { success: true };
-  } catch (e: any) {
-    console.warn('[resolveTransactionStatus] ⚠️ waitForTransaction failed:', e.message);
-    console.log('[resolveTransactionStatus] ✅ But have digest - assuming success');
-    // 有 digest 就視為成功（交易已送出）
+  } catch {
     return { success: true };
   }
 }
@@ -129,12 +96,6 @@ export async function executeTransactionWithToast(
   transaction: Transaction,
   options: ExecuteTransactionOptions = {}
 ): Promise<{ success: boolean; digest?: string }> {
-  console.log('[executeTransactionWithToast] Called with options:', {
-    loadingMessage: options.loadingMessage,
-    successMessage: options.successMessage,
-    hasClient: !!options.client,
-  });
-
   const {
     loadingMessage = 'Processing transaction...',
     successMessage = 'Transaction successful',
@@ -146,11 +107,7 @@ export async function executeTransactionWithToast(
   } = options;
 
   const toastId = toast.loading(loadingMessage);
-  console.log('[executeTransactionWithToast] Toast ID:', toastId);
-
   try {
-    console.log('[executeTransactionWithToast] Calling signAndExecute...');
-    
     const result = await signAndExecute({
       transaction,
       options: {
@@ -158,13 +115,6 @@ export async function executeTransactionWithToast(
         showObjectChanges: true,
       },
     });
-
-    console.log('[executeTransactionWithToast] signAndExecute returned:', {
-      digest: result.digest,
-      hasEffects: !!result.effects,
-      hasRawEffects: !!result.rawEffects,
-    });
-
     const digest = result.digest;
     if (!digest) {
       toast.dismiss(toastId);
@@ -177,9 +127,7 @@ export async function executeTransactionWithToast(
 
     const { success, error } = await resolveTransactionStatus(result, client);
     toast.dismiss(toastId);
-
     if (success) {
-      console.log('[executeTransactionWithToast] ✅ Success');
       toast.success(successMessage, {
         duration: 5000,
         icon: '✅',
@@ -187,8 +135,6 @@ export async function executeTransactionWithToast(
       if (onSuccess) await onSuccess(digest);
       return { success: true, digest };
     }
-
-    console.error('[executeTransactionWithToast] ❌ Failed:', error);
     toast.error(`${errorMessage}: ${error || 'Unknown error'}`, {
       duration: 7000,
       icon: '❌',
@@ -196,7 +142,6 @@ export async function executeTransactionWithToast(
     if (onError) await onError(new Error(error || 'Unknown error'));
     return { success: false, digest };
   } catch (error: any) {
-    console.error('[executeTransactionWithToast] Exception:', error);
     toast.dismiss(toastId);
     const errorMsg = error.message || errorMessage;
     toast.error(errorMsg, { duration: 7000, icon: '❌' });

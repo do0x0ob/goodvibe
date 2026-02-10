@@ -1,6 +1,6 @@
 [package]
 name = "goodvibe"
-edition = "2024.beta"
+edition = "2024"
 version = "0.1.0"
 
 [dependencies]

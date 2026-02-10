@@ -61,7 +61,6 @@ export async function buildStartSupportingTx(
   tx.setSender(sender);
   
   // Query user's USDC coins from chain
-  console.log('[buildStartSupportingTx] Fetching USDC coins from wallet...');
   const usdcCoins = await suiClient.getCoins({
     owner: sender,
     coinType: USDC_TYPE,
@@ -71,8 +70,6 @@ export async function buildStartSupportingTx(
     throw new Error('No USDC in wallet. Please get USDC first.');
   }
 
-  console.log(`[buildStartSupportingTx] Found ${usdcCoins.data.length} USDC coins`);
-
   // Merge USDC coins and split the required amount
   const [primaryCoin, ...otherCoins] = usdcCoins.data.map((coin: any) => coin.coinObjectId);
 
@@ -81,9 +78,7 @@ export async function buildStartSupportingTx(
   }
 
   const [usdcCoin] = tx.splitCoins(tx.object(primaryCoin), [tx.pure.u64(amount)]);
-  
-  console.log('[buildStartSupportingTx] Calling SDK buildMintTx...');
-  
+
   await client.buildMintTx({
     tx,
     stableCoinType: STABLE_COIN_TYPE,
@@ -92,9 +87,7 @@ export async function buildStartSupportingTx(
     sender,
     autoTransfer: true,
   });
-  
-  console.log('[buildStartSupportingTx] Adding support_project call...');
-  
+
   tx.moveCall({
     target: `${PACKAGE_ID}::project::support_project`,
     typeArguments: [STABLE_COIN_TYPE],
@@ -104,9 +97,7 @@ export async function buildStartSupportingTx(
       tx.pure.u64(amount),
     ],
   });
-  
-  console.log('[buildStartSupportingTx] Transaction built successfully');
-  
+
   return tx;
 }
 

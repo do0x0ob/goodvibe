@@ -29,17 +29,10 @@ export async function GET(request: NextRequest) {
           limit: 50,
           order: 'descending',
         });
-
-        console.log(`[DEBUG] ${eventType}: found ${res.data.length} total events`);
-
-        // 過濾屬於這個項目的事件
         const projectEvents = res.data.filter((e: any) => {
           const parsed = e.parsedJson as any;
           return parsed?.project_id === projectId;
         });
-
-        console.log(`[DEBUG] ${eventType}: ${projectEvents.length} events for project ${projectId}`);
-
         results[eventType] = {
           total: res.data.length,
           forThisProject: projectEvents.length,
@@ -50,7 +43,6 @@ export async function GET(request: NextRequest) {
           })),
         };
       } catch (err: any) {
-        console.error(`[DEBUG] Error querying ${eventType}:`, err);
         results[eventType] = {
           error: err.message,
         };
@@ -63,7 +55,6 @@ export async function GET(request: NextRequest) {
       results,
     });
   } catch (error: any) {
-    console.error('[DEBUG] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

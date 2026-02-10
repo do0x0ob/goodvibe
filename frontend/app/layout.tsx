@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Providers } from "./providers";
 import { Toaster } from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import "./globals.css";
 import "@mysten/dapp-kit/dist/index.css";
+
+function HeaderFallback() {
+  return (
+    <header className="bg-canvas-default/80 backdrop-blur-md border-b border-ink-300/20 fixed top-0 w-full z-40 h-20" />
+  );
+}
 
 export const metadata: Metadata = {
   title: "GoodVibe - Fund Projects, Earn Yield",
@@ -19,7 +26,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased min-h-screen bg-canvas-default text-ink-900">
         <Providers>
-          <Header />
+          <Suspense fallback={<HeaderFallback />}>
+            <Header />
+          </Suspense>
           <Toaster 
             position="bottom-right" 
             toastOptions={{

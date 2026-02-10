@@ -99,11 +99,6 @@ export const MockDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     // await contract.updateDonationConfig(mockVault.id, globalDonationPercentage, allocations);
     
     setHasUnsavedChanges(false);
-    console.log('Configuration saved:', {
-      vaultId: mockVault?.id,
-      globalDonationPercentage,
-      allocations
-    });
   };
 
   const value: MockDataContextType = {
