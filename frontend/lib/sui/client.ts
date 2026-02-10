@@ -36,32 +36,20 @@ export const suiClient = new SuiClient({
  * - 某些操作（如 queryEvents）在 gRPC 中實作方式不同，可能需要特殊處理
  */
 export function getSuiClient() {
-  console.log('🔍 getSuiClient called, checking gRPC status...');
-  console.log('  - isGrpcEnabled():', isGrpcEnabled());
-  console.log('  - SUI_GRPC_ENDPOINT:', process.env.SUI_GRPC_ENDPOINT);
-  console.log('  - NEXT_PUBLIC_SUI_GRPC_ENDPOINT:', process.env.NEXT_PUBLIC_SUI_GRPC_ENDPOINT);
-  
   if (isGrpcEnabled()) {
     try {
-      console.log('  - Attempting to load gRPC adapter...');
-      // 使用 gRPC-Web（支援瀏覽器和 Node.js）
+      // 使用混合架構：gRPC-Web + HTTP 回退
       const { getGrpcSuiAdapter } = require('./grpc-adapter');
       const adapter = getGrpcSuiAdapter();
       if (adapter) {
-        console.log('✅ Using Surflux gRPC-Web for Sui queries');
         return adapter as any;
-      } else {
-        console.warn('⚠️  gRPC adapter returned null');
       }
     } catch (error) {
-      console.error('❌ Failed to load gRPC adapter, falling back to HTTP:', error);
+      console.error('Failed to load gRPC adapter, falling back to HTTP:', error);
     }
-  } else {
-    console.log('  - gRPC not enabled, using HTTP');
   }
   
   // 回退到 HTTP JSON-RPC
-  console.log('⚠️  Using HTTP JSON-RPC for Sui queries (fallback)');
   return suiClient;
 }
 
