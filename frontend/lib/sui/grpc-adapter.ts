@@ -97,10 +97,20 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
   return {
     async getObject(params) {
       try {
+        // 構建 read_mask
+        const readMask: string[] = ['object.object_id', 'object.version', 'object.digest'];
+        
+        if (params.options?.showContent) readMask.push('object.content');
+        if (params.options?.showOwner) readMask.push('object.owner');
+        if (params.options?.showType) readMask.push('object.type');
+        if (params.options?.showBcs) readMask.push('object.bcs');
+        if (params.options?.showStorageRebate) readMask.push('object.storage_rebate');
+        if (params.options?.showPreviousTransaction) readMask.push('object.previous_transaction');
+        if (params.options?.showDisplay) readMask.push('object.display');
+        
         const { response } = await grpcClient.ledgerService.getObject({
           object_id: params.id,
-          // 可以根據 options 設定 read_mask
-          // read_mask: { paths: ['object.content', 'object.owner'] }
+          read_mask: { paths: readMask },
         });
         
         // 轉換為 SuiClient 格式
@@ -135,30 +145,12 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
     },
 
     async queryEvents(params) {
-      // gRPC 使用基於 checkpoint 的事件查詢
-      // 由於 Surflux 可能沒有直接的 queryEvents API
-      // 我們需要透過 checkpoint 掃描或使用 HTTP JSON-RPC 作為回退
-      console.warn('queryEvents via gRPC may not be fully supported, consider using checkpoint-based approach');
+      // ⚠️ Surflux gRPC 不支援 queryEvents
+      // 回退到 HTTP JSON-RPC
+      console.log('⚠️  queryEvents not supported in Surflux gRPC, using HTTP fallback');
       
-      try {
-        const { queryEventsViaGrpc } = await import('./grpc-events');
-        
-        const result = await queryEventsViaGrpc({
-          query: params.query,
-          cursor: params.cursor,
-          limit: params.limit,
-          order: params.order,
-        });
-
-        return {
-          data: result.data,
-          nextCursor: result.nextCursor,
-          hasNextPage: result.hasNextPage,
-        };
-      } catch (error) {
-        console.error('queryEvents error:', error);
-        throw error;
-      }
+      const { suiClient } = await import('./client');
+      return suiClient.queryEvents(params);
     },
 
     async getTransactionBlock(params) {
