@@ -1,5 +1,5 @@
 /**
- * gRPC 事件查詢實作
+ * gRPC 事件查詢實作 - Surflux gRPC-Web
  * 
  * 在 Sui gRPC 中，事件查詢的方式與 JSON-RPC 不同：
  * - JSON-RPC: 直接查詢事件 (queryEvents)
@@ -8,7 +8,7 @@
  * 這個檔案實作了基於 checkpoint 的事件掃描機制
  */
 
-import { getSuiGrpcClients, callGrpcMethod, callGrpcStream } from './grpc-client';
+import { getSuiGrpcClient } from './grpc-client';
 
 export interface EventFilter {
   MoveEventType?: string;
@@ -32,30 +32,23 @@ export interface EventResult {
 }
 
 /**
- * 透過 gRPC 查詢事件
+ * 透過 gRPC 查詢事件（使用 Surflux gRPC-Web）
  * 使用 checkpoint 掃描方式
  */
 export async function queryEventsViaGrpc(params: QueryEventsParams): Promise<EventResult> {
-  const clients = getSuiGrpcClients();
+  const grpcClient = getSuiGrpcClient();
   
-  if (!clients) {
-    throw new Error('gRPC clients not initialized');
+  if (!grpcClient) {
+    throw new Error('gRPC client not initialized');
   }
 
-  // 策略：使用 subscription service 串流最新的 checkpoints
-  // 然後從 checkpoint 中過濾出符合條件的事件
-  
+  // 策略：從最新的 checkpoint 往回掃描，尋找符合條件的事件
   const limit = params.limit || 50;
   const events: any[] = [];
   
   try {
-    // 方法 1: 使用 LedgerService 取得最新的 checkpoint 資訊
-    const serviceInfo = await callGrpcMethod(
-      clients.ledger,
-      'GetServiceInfo',
-      {}
-    );
-
+    // 取得服務資訊以獲取當前 checkpoint
+    const { response: serviceInfo } = await grpcClient.ledgerService.getServiceInfo({});
     const currentCheckpoint = serviceInfo.checkpoint_height;
     
     // 從當前 checkpoint 往回掃描
@@ -65,11 +58,9 @@ export async function queryEventsViaGrpc(params: QueryEventsParams): Promise<Eve
 
     for (let i = currentCheckpoint; i >= startCheckpoint && events.length < limit; i--) {
       try {
-        const checkpoint = await callGrpcMethod(
-          clients.ledger,
-          'GetCheckpoint',
-          { sequence_number: i }
-        );
+        const { response: checkpoint } = await grpcClient.ledgerService.getCheckpoint({
+          sequence_number: i,
+        });
 
         // 從 checkpoint 中提取事件
         if (checkpoint.transactions) {
@@ -77,11 +68,9 @@ export async function queryEventsViaGrpc(params: QueryEventsParams): Promise<Eve
             // 取得完整的交易資料（包含事件）
             if (tx.digest) {
               try {
-                const txDetail = await callGrpcMethod(
-                  clients.ledger,
-                  'GetTransaction',
-                  { digest: tx.digest }
-                );
+                const { response: txDetail } = await grpcClient.ledgerService.getTransaction({
+                  digest: tx.digest,
+                });
 
                 // 過濾符合條件的事件
                 if (txDetail.events) {
@@ -155,42 +144,86 @@ function filterEvents(events: any[], filter: EventFilter): any[] {
 }
 
 /**
- * 使用串流方式監聽新事件
+ * 使用串流方式監聽新事件（使用 Surflux gRPC-Web）
  * 適合即時監控場景
+ * 
+ * 注意：Surflux 可能不支援串流訂閱，需要使用輪詢作為替代方案
  */
 export function subscribeToEvents(
   params: QueryEventsParams,
   onEvent: (event: any) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const clients = getSuiGrpcClients();
+  const grpcClient = getSuiGrpcClient();
   
-  if (!clients) {
-    throw new Error('gRPC clients not initialized');
+  if (!grpcClient) {
+    throw new Error('gRPC client not initialized');
   }
 
-  // 使用 SubscriptionService 訂閱 checkpoint
-  const stream = callGrpcStream(
-    clients.subscription,
-    'SubscribeCheckpoints',
-    {}, // 訂閱所有新的 checkpoints
-    (checkpoint: any) => {
-      // 從 checkpoint 中提取事件
-      if (checkpoint.transactions) {
-        for (const tx of checkpoint.transactions) {
-          // 處理每個交易的事件
-          if (tx.events) {
-            const filteredEvents = filterEvents(tx.events, params.query);
-            filteredEvents.forEach(onEvent);
+  // 使用輪詢作為串流的替代方案
+  // 每 5 秒檢查一次新事件
+  let lastCheckpoint = 0;
+  let isActive = true;
+
+  const poll = async () => {
+    if (!isActive) return;
+
+    try {
+      const { response: serviceInfo } = await grpcClient.ledgerService.getServiceInfo({});
+      const currentCheckpoint = serviceInfo.checkpoint_height;
+
+      // 如果有新的 checkpoint
+      if (currentCheckpoint > lastCheckpoint) {
+        // 掃描新的 checkpoints
+        for (let i = lastCheckpoint + 1; i <= currentCheckpoint && isActive; i++) {
+          try {
+            const { response: checkpoint } = await grpcClient.ledgerService.getCheckpoint({
+              sequence_number: i,
+            });
+
+            // 從 checkpoint 中提取事件
+            if (checkpoint.transactions) {
+              for (const tx of checkpoint.transactions) {
+                if (tx.digest) {
+                  try {
+                    const { response: txDetail } = await grpcClient.ledgerService.getTransaction({
+                      digest: tx.digest,
+                    });
+
+                    if (txDetail.events) {
+                      const filteredEvents = filterEvents(txDetail.events, params.query);
+                      filteredEvents.forEach(onEvent);
+                    }
+                  } catch (txError) {
+                    console.warn(`Failed to get transaction ${tx.digest}:`, txError);
+                  }
+                }
+              }
+            }
+          } catch (checkpointError) {
+            console.warn(`Failed to get checkpoint ${i}:`, checkpointError);
           }
         }
+
+        lastCheckpoint = currentCheckpoint;
       }
-    },
-    onError
-  );
+    } catch (error) {
+      if (onError) {
+        onError(error as Error);
+      }
+    }
+
+    // 5 秒後再次輪詢
+    if (isActive) {
+      setTimeout(poll, 5000);
+    }
+  };
+
+  // 開始輪詢
+  poll();
 
   // 回傳取消訂閱的函數
   return () => {
-    stream.cancel();
+    isActive = false;
   };
 }

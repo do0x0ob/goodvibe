@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "download-protos": "bash scripts/download-protos.sh",
+    "test-grpc": "node scripts/test-grpc.js",
     "postinstall": "[ ! -d protos/proto ] && npm run download-protos || echo 'Proto files already exist'"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "@mysten/dapp-kit": "^0.19.11",
     "@mysten/kiosk": "^0.14.6",
     "@mysten/sui": "^1.45.2",
+    "@protobuf-ts/grpcweb-transport": "^2.11.1",
     "@tanstack/react-query": "^5.90.20",
     "axios": "^1.13.5",
     "buffer": "^6.0.3",
@@ -38,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",

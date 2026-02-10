@@ -1,9 +1,9 @@
 /**
- * gRPC 適配器：將 SuiClient 的 API 轉換為 gRPC 呼叫
- * 這個檔案提供與原本 SuiClient 相容的介面，但使用 gRPC 作為底層傳輸
+ * gRPC 適配器：將 SuiClient 的 API 轉換為 Surflux gRPC 呼叫
+ * 這個檔案提供與原本 SuiClient 相容的介面，但使用 gRPC-Web 作為底層傳輸
  */
 
-import { getSuiGrpcClients, callGrpcMethod, callGrpcStream } from './grpc-client';
+import { getSuiGrpcClient } from './grpc-client';
 
 export interface GrpcSuiClientAdapter {
   // Object queries
@@ -84,122 +84,152 @@ export interface GrpcSuiClientAdapter {
 }
 
 /**
- * 建立 gRPC 適配器實例
+ * 建立 gRPC 適配器實例（使用 Surflux gRPC-Web）
  */
 export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
-  const clients = getSuiGrpcClients();
+  const grpcClient = getSuiGrpcClient();
   
-  if (!clients) {
-    console.warn('gRPC clients not available, falling back to JSON-RPC');
+  if (!grpcClient) {
+    console.warn('gRPC client not available, falling back to JSON-RPC');
     return null;
   }
 
   return {
     async getObject(params) {
-      const request = {
-        object_id: params.id,
-      };
-      
-      const response = await callGrpcMethod(
-        clients.ledger,
-        'GetObject',
-        request
-      );
-      
-      return response;
+      try {
+        const { response } = await grpcClient.ledgerService.getObject({
+          object_id: params.id,
+          // 可以根據 options 設定 read_mask
+          // read_mask: { paths: ['object.content', 'object.owner'] }
+        });
+        
+        // 轉換為 SuiClient 格式
+        return {
+          data: response.object,
+        };
+      } catch (error) {
+        console.error('getObject error:', error);
+        throw error;
+      }
     },
 
     async getOwnedObjects(params) {
-      const request = {
-        owner: params.owner,
-        filter: params.filter,
-        limit: params.limit || 50,
-        cursor: params.cursor,
-      };
+      try {
+        const { response } = await grpcClient.stateService.listOwnedObjects({
+          owner: params.owner,
+          filter: params.filter,
+          limit: params.limit || 50,
+          cursor: params.cursor,
+        });
 
-      const response = await callGrpcMethod(
-        clients.state,
-        'ListOwnedObjects',
-        request
-      );
-
-      return response;
+        // 轉換為 SuiClient 格式
+        return {
+          data: response.objects || [],
+          nextCursor: response.next_cursor,
+          hasNextPage: !!response.next_cursor,
+        };
+      } catch (error) {
+        console.error('getOwnedObjects error:', error);
+        throw error;
+      }
     },
 
     async queryEvents(params) {
       // gRPC 使用基於 checkpoint 的事件查詢
-      const { queryEventsViaGrpc } = await import('./grpc-events');
+      // 由於 Surflux 可能沒有直接的 queryEvents API
+      // 我們需要透過 checkpoint 掃描或使用 HTTP JSON-RPC 作為回退
+      console.warn('queryEvents via gRPC may not be fully supported, consider using checkpoint-based approach');
       
-      const result = await queryEventsViaGrpc({
-        query: params.query,
-        cursor: params.cursor,
-        limit: params.limit,
-        order: params.order,
-      });
+      try {
+        const { queryEventsViaGrpc } = await import('./grpc-events');
+        
+        const result = await queryEventsViaGrpc({
+          query: params.query,
+          cursor: params.cursor,
+          limit: params.limit,
+          order: params.order,
+        });
 
-      // 轉換為與 SuiClient 相容的格式
-      return {
-        data: result.data,
-        nextCursor: result.nextCursor,
-        hasNextPage: result.hasNextPage,
-      };
+        return {
+          data: result.data,
+          nextCursor: result.nextCursor,
+          hasNextPage: result.hasNextPage,
+        };
+      } catch (error) {
+        console.error('queryEvents error:', error);
+        throw error;
+      }
     },
 
     async getTransactionBlock(params) {
-      const request = {
-        digest: params.digest,
-      };
+      try {
+        const { response } = await grpcClient.ledgerService.getTransaction({
+          digest: params.digest,
+        });
 
-      const response = await callGrpcMethod(
-        clients.ledger,
-        'GetTransaction',
-        request
-      );
-
-      return response;
+        return {
+          data: response.transaction,
+        };
+      } catch (error) {
+        console.error('getTransactionBlock error:', error);
+        throw error;
+      }
     },
 
     async getCheckpoint(params) {
-      const request = {
-        checkpoint_id: params.id,
-      };
+      try {
+        const { response } = await grpcClient.ledgerService.getCheckpoint({
+          checkpoint_id: params.id,
+        });
 
-      const response = await callGrpcMethod(
-        clients.ledger,
-        'GetCheckpoint',
-        request
-      );
-
-      return response;
+        return {
+          data: response.checkpoint,
+        };
+      } catch (error) {
+        console.error('getCheckpoint error:', error);
+        throw error;
+      }
     },
 
     async getBalance(params) {
-      const request = {
-        owner: params.owner,
-        coin_type: params.coinType,
-      };
+      try {
+        // Surflux 要求必須提供 coin_type
+        const coinType = params.coinType || '0x2::sui::SUI';
+        
+        const { response } = await grpcClient.stateService.getBalance({
+          owner: params.owner,
+          coin_type: coinType,
+        });
 
-      const response = await callGrpcMethod(
-        clients.state,
-        'GetBalance',
-        request
-      );
-
-      return response;
+        // 轉換為 SuiClient 格式
+        return {
+          coinType: response.coin_type,
+          coinObjectCount: response.coin_object_count,
+          totalBalance: response.total_balance,
+          lockedBalance: response.locked_balance,
+        };
+      } catch (error) {
+        console.error('getBalance error:', error);
+        throw error;
+      }
     },
 
     async getAllBalances(params) {
-      const request = {
-        owner: params.owner,
-      };
+      try {
+        const { response } = await grpcClient.stateService.listBalances({
+          owner: params.owner,
+        });
 
-      const response = await callGrpcMethod(
-        clients.state,
-        'ListBalances',
-        request
-      );
-
-      return response;
+        // 轉換為 SuiClient 格式
+        return {
+          data: response.balances || [],
+          nextCursor: response.next_cursor,
+          hasNextPage: !!response.next_cursor,
+        };
+      } catch (error) {
+        console.error('getAllBalances error:', error);
+        throw error;
+      }
     },
   };
 }
