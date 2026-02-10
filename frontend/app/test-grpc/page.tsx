@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getSuiClient, isGrpcEnabled } from '@/lib/sui/client';
 
 export default function TestGrpcPage() {
   const [status, setStatus] = useState<string>('Testing...');
@@ -13,57 +12,13 @@ export default function TestGrpcPage() {
   }, []);
 
   async function testGrpcConnection() {
-    const logs: any[] = [];
-    
     try {
-      // 檢查 gRPC 是否啟用
-      const grpcEnabled = isGrpcEnabled();
-      logs.push({
-        title: 'gRPC Status',
-        content: grpcEnabled ? '✅ Enabled' : '❌ Disabled',
-        status: grpcEnabled ? 'success' : 'warning',
-      });
-
-      // 取得客戶端
-      const client = getSuiClient();
-      logs.push({
-        title: 'Client Type',
-        content: grpcEnabled ? 'gRPC-Web (Surflux)' : 'HTTP JSON-RPC',
-        status: 'info',
-      });
-
-      setResults([...logs]);
-      setStatus('Connected');
-
-      // 測試簡單的查詢
-      try {
-        // 嘗試查詢一個已知的 object (Gas object)
-        const objectResult = await client.getObject({
-          id: '0x6',
-          options: {
-            showContent: true,
-          },
-        });
-
-        logs.push({
-          title: 'Object Query Test',
-          content: `✅ Success - Object ID: ${objectResult.data?.objectId || 'N/A'}`,
-          status: 'success',
-          details: JSON.stringify(objectResult, null, 2).slice(0, 500),
-        });
-      } catch (objError: any) {
-        logs.push({
-          title: 'Object Query Test',
-          content: `⚠️ Failed: ${objError.message}`,
-          status: 'warning',
-          details: objError.stack,
-        });
-      }
-
-      setResults([...logs]);
-
+      const res = await fetch('/api/test-grpc');
+      const data = await res.json();
+      setStatus(data.status);
+      setResults(data.results || []);
+      if (!res.ok) setError(data.error || res.statusText);
     } catch (err: any) {
-      console.error('Test error:', err);
       setError(err.message);
       setStatus('Error');
     }
@@ -136,21 +91,13 @@ export default function TestGrpcPage() {
         </div>
 
         <div className="mt-8 p-4 bg-white rounded-lg shadow">
-          <h3 className="font-bold mb-2">環境變數設定</h3>
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className="font-mono text-gray-600">NEXT_PUBLIC_SUI_GRPC_ENDPOINT:</span>{' '}
-              <span className={process.env.NEXT_PUBLIC_SUI_GRPC_ENDPOINT ? 'text-green-600' : 'text-red-600'}>
-                {process.env.NEXT_PUBLIC_SUI_GRPC_ENDPOINT || '❌ Not set'}
-              </span>
-            </p>
-            <p>
-              <span className="font-mono text-gray-600">NEXT_PUBLIC_SUI_GRPC_TOKEN:</span>{' '}
-              <span className={process.env.NEXT_PUBLIC_SUI_GRPC_TOKEN ? 'text-green-600' : 'text-red-600'}>
-                {process.env.NEXT_PUBLIC_SUI_GRPC_TOKEN ? '✅ Set' : '❌ Not set'}
-              </span>
-            </p>
-          </div>
+          <h3 className="font-bold mb-2">環境變數（僅伺服器端）</h3>
+          <p className="text-sm text-gray-600 mb-2">
+            gRPC API Key 僅在伺服器使用，請在 Vercel / .env 設定 <code className="bg-gray-100 px-1">SUI_GRPC_ENDPOINT</code> 與 <code className="bg-gray-100 px-1">SUI_GRPC_TOKEN</code>，切勿使用 NEXT_PUBLIC_ 前綴以免暴露給瀏覽器。
+          </p>
+          <p className="text-xs text-amber-700">
+            此頁測試結果由 <code>/api/test-grpc</code> 在伺服器執行，瀏覽器不會取得 API Key。
+          </p>
         </div>
       </div>
     </div>

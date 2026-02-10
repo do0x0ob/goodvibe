@@ -2,12 +2,13 @@ import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { NETWORKS, SUI_NETWORK } from '@/config/sui';
 
 /**
- * 判斷是否啟用 gRPC
- * 透過環境變數 SUI_GRPC_ENDPOINT 和 SUI_GRPC_TOKEN 來決定
+ * 判斷是否啟用 gRPC（僅伺服器端；API Key 絕不暴露給瀏覽器）
+ * 僅讀取 SUI_GRPC_ENDPOINT 和 SUI_GRPC_TOKEN，不使用 NEXT_PUBLIC_*
  */
 export function isGrpcEnabled(): boolean {
-  const hasEndpoint = !!(process.env.SUI_GRPC_ENDPOINT || process.env.NEXT_PUBLIC_SUI_GRPC_ENDPOINT);
-  const hasToken = !!(process.env.SUI_GRPC_TOKEN || process.env.NEXT_PUBLIC_SUI_GRPC_TOKEN);
+  if (typeof window !== 'undefined') return false; // 瀏覽器端一律不使用 gRPC，避免需傳 API Key
+  const hasEndpoint = !!process.env.SUI_GRPC_ENDPOINT;
+  const hasToken = !!process.env.SUI_GRPC_TOKEN;
   return hasEndpoint && hasToken;
 }
 
@@ -36,9 +37,9 @@ export const suiClient = new SuiClient({
  * - 某些操作（如 queryEvents）在 gRPC 中實作方式不同，可能需要特殊處理
  */
 export function getSuiClient() {
-  if (isGrpcEnabled()) {
+  // 僅在伺服器端使用 gRPC（需 API Key）；瀏覽器端一律用 HTTP 以免暴露 Key
+  if (typeof window === 'undefined' && isGrpcEnabled()) {
     try {
-      // 使用混合架構：gRPC-Web + HTTP 回退
       const { getGrpcSuiAdapter } = require('./grpc-adapter');
       const adapter = getGrpcSuiAdapter();
       if (adapter) {
@@ -48,8 +49,6 @@ export function getSuiClient() {
       console.error('Failed to load gRPC adapter, falling back to HTTP:', error);
     }
   }
-  
-  // 回退到 HTTP JSON-RPC
   return suiClient;
 }
 

@@ -9,7 +9,8 @@ import { GrpcWebFetchTransport } from '@protobuf-ts/grpcweb-transport';
 
 // gRPC 配置
 const getGrpcEndpoint = () => {
-  const endpoint = process.env.SUI_GRPC_ENDPOINT || process.env.NEXT_PUBLIC_SUI_GRPC_ENDPOINT || '';
+  // 僅在伺服器端讀取，避免 API Key 暴露給瀏覽器
+  const endpoint = process.env.SUI_GRPC_ENDPOINT || '';
   // 如果端點包含 :443，移除它並使用 https://
   if (endpoint.includes(':443')) {
     return `https://${endpoint.replace(':443', '')}`;
@@ -22,8 +23,9 @@ const getGrpcEndpoint = () => {
   return endpoint ? `https://${endpoint}` : '';
 };
 
+/** 僅讀取伺服器端環境變數，絕不使用 NEXT_PUBLIC_ 以免 API Key 暴露 */
 const getGrpcApiKey = () => {
-  return process.env.SUI_GRPC_TOKEN || process.env.NEXT_PUBLIC_SUI_GRPC_TOKEN || '';
+  return process.env.SUI_GRPC_TOKEN || '';
 };
 
 // Sui gRPC 客戶端實例
