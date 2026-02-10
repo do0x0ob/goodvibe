@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { suiClient } from '@/lib/sui/client';
+import { getSuiClient } from '@/lib/sui/client';  // ✅ 使用 gRPC
 import { getPlatformStats, getAllProjects } from '@/lib/sui/queries';
 import { PLATFORM_ID, PACKAGE_ID } from '@/config/sui';
 
@@ -42,7 +42,8 @@ export async function GET() {
       return NextResponse.json(MOCK_PLATFORM_STATS);
     }
 
-    const platformStats = await getPlatformStats(suiClient, PLATFORM_ID);
+    const client = getSuiClient();  // ✅ 使用 gRPC
+    const platformStats = await getPlatformStats(client, PLATFORM_ID);
 
     if (!platformStats) {
       // Platform not found, fallback to mock
@@ -55,7 +56,7 @@ export async function GET() {
     let activeProjects = MOCK_PLATFORM_STATS.activeProjects;
     if (PACKAGE_ID) {
       try {
-        const projects = await getAllProjects(suiClient, PACKAGE_ID);
+        const projects = await getAllProjects(client, PACKAGE_ID);
         // Count projects with raisedAmount > 0 as active
         activeProjects = projects.filter(p => p.raisedAmount > BigInt(0)).length;
       } catch {

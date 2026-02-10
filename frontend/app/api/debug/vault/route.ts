@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { suiClient } from '@/lib/sui/client';
+import { getSuiClient } from '@/lib/sui/client';  // ✅ 使用 gRPC
 import { getUserVault, getVaultAllocations } from '@/lib/sui/queries';
 import { PACKAGE_ID, STABLE_COIN_TYPE } from '@/config/sui';
 
@@ -15,8 +15,9 @@ export async function GET() {
   }
 
   try {
+    const client = getSuiClient();  // ✅ 使用 gRPC
     const vault = await getUserVault(
-      suiClient,
+      client,
       TEST_ADDRESS,
       PACKAGE_ID,
       STABLE_COIN_TYPE
@@ -30,7 +31,7 @@ export async function GET() {
       });
     }
 
-    const allocations = await getVaultAllocations(suiClient, vault.id);
+    const allocations = await getVaultAllocations(client, vault.id);
 
     return NextResponse.json({
       success: true,

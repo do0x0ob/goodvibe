@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { suiClient } from '@/lib/sui/client';
+import { getSuiClient } from '@/lib/sui/client';  // ✅ 使用 gRPC
 import { getUserSupportRecord, getSupportRecordBadges } from '@/lib/sui/queries';
 import { PACKAGE_ID } from '@/config/sui';
 
@@ -22,7 +22,8 @@ export async function GET(request: Request) {
       });
     }
 
-    const recordId = await getUserSupportRecord(suiClient, userAddress, PACKAGE_ID);
+    const client = getSuiClient();  // ✅ 使用 gRPC
+    const recordId = await getUserSupportRecord(client, userAddress, PACKAGE_ID);
 
     if (!recordId) {
       return NextResponse.json({
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const badges = await getSupportRecordBadges(suiClient, recordId);
+    const badges = await getSupportRecordBadges(client, recordId);
 
     const dashboardData: DashboardResponse = {
       supportedProjects: badges.map((b) => ({

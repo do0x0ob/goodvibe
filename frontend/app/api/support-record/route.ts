@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { suiClient } from '@/lib/sui/client';
+import { getSuiClient } from '@/lib/sui/client';  // ✅ 使用 gRPC
 import { getUserSupportRecord, getSupportRecordBadges } from '@/lib/sui/queries';
 import { PACKAGE_ID } from '@/config/sui';
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Address is required' }, { status: 400 });
     }
 
-    const client = suiClient;
+    const client = getSuiClient();  // ✅ 使用 gRPC
     const recordId = await getUserSupportRecord(client, address, PACKAGE_ID);
 
     if (!recordId) {

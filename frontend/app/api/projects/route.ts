@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PACKAGE_ID } from '@/config/sui';
 import { Project } from '@/types/project';
-import { suiClient } from '@/lib/sui/client';
+import { getSuiClient } from '@/lib/sui/client';  // ✅ 改用 getSuiClient（自動選擇 gRPC）
 import { getAllProjects } from '@/lib/sui/queries';
 
 // Simple in-memory cache
@@ -149,7 +149,8 @@ export async function GET() {
         // Prioritize real chain data if PACKAGE_ID is configured
         if (PACKAGE_ID) {
             try {
-                const chainProjects = await getAllProjects(suiClient, PACKAGE_ID);
+                const client = getSuiClient();  // ✅ 使用 gRPC（如已設定）
+                const chainProjects = await getAllProjects(client, PACKAGE_ID);
                 realProjects = chainProjects.map((p) => ({
                         id: p.id,
                         title: p.title,
