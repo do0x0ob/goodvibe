@@ -63,12 +63,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (!projects) return { total: 0, totalRaised: BigInt(0), totalSponsors: 0 };
+    if (!projects) return { total: 0, totalRaised: BigInt(0), totalSupporters: 0 };
     
     return {
       total: projects.length,
       totalRaised: projects.reduce((sum, p) => sum + (p.totalSupportAmount || p.raisedAmount), BigInt(0)),
-      totalSponsors: projects.reduce((sum, p) => sum + p.supporterCount, 0)
+      totalSupporters: projects.reduce((sum, p) => sum + p.supporterCount, 0)
     };
   }, [projects]);
 
@@ -108,8 +108,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             <div className="text-xs text-ink-500 uppercase tracking-wide">Total Raised (USDC)</div>
           </div>
           <div>
-            <div className="text-3xl font-serif text-ink-900 mb-1">{stats.totalSponsors}</div>
-            <div className="text-xs text-ink-500 uppercase tracking-wide">Total Sponsors</div>
+            <div className="text-3xl font-serif text-ink-900 mb-1">{stats.totalSupporters}</div>
+            <div className="text-xs text-ink-500 uppercase tracking-wide">Total Supporters</div>
           </div>
         </div>
       </div>
@@ -223,7 +223,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-ink-500">Sponsors</span>
+                        <span className="text-ink-500">Supporters</span>
                         <span className="font-medium text-ink-900">{project.supporterCount}</span>
                       </div>
                       <div className="pt-2">

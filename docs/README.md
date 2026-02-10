@@ -13,8 +13,13 @@
 | [data-architecture.md](./data-architecture.md) | 前端資料架構（統一 API、緩存、查詢策略） |
 | [dashboard-design.md](./dashboard-design.md) | Dashboard 業務邏輯與 API 設計 |
 | [fixes-summary.md](./fixes-summary.md) | 修復紀錄與統一資料來源架構 |
+| [grpc-migration-guide.md](./grpc-migration-guide.md) | gRPC 遷移指南 |
+| [GRPC_FINAL_WORKING_STATUS.md](./GRPC_FINAL_WORKING_STATUS.md) | gRPC 最終工作狀態報告（混合架構、生產就緒） |
+| [HTTP_QUERIES_CURL.md](./HTTP_QUERIES_CURL.md) | Sui HTTP JSON-RPC 查詢參考（curl 格式、依方法分類） |
+| [CURL_EXAMPLES_READY_TO_USE.md](./CURL_EXAMPLES_READY_TO_USE.md) | 即用 curl 命令範例（複製即用） |
 
 ## 篩選說明
 
-- **已不納入**：`DASHBOARD_MIGRATION_GUIDE.md`、`DASHBOARD_REFACTOR_COMPLETE.md`（內容針對已移除的 DashboardV2，遷移步驟已過期）。
+- **根目錄保留**：[AI_DISCLOSURE.md](../AI_DISCLOSURE.md) 為 Hackathon 規定之 AI 使用揭露，保留於根目錄方便評審查閱。
+- **已不納入**：`DASHBOARD_MIGRATION_GUIDE.md`、`DASHBOARD_REFACTOR_COMPLETE.md`（內容針對已移除的 DashboardV2，遷移步驟已過期）；`GRPC_QUERY_TEST_REPORT.md`、`GRPC_STATUS.md`、`TESTING_SUMMARY.md` 已刪除（內容由 `GRPC_FINAL_WORKING_STATUS.md` 涵蓋或已過時）。
 - **專案主說明**：請見倉庫根目錄的 [README.md](../README.md)。

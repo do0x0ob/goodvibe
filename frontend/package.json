@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "download-protos": "bash scripts/download-protos.sh",
-    "test-grpc": "node scripts/test-grpc.js",
+    "test-grpc": "node scripts/test-grpc-integration.js",
     "postinstall": "[ ! -d protos/proto ] && npm run download-protos || echo 'Proto files already exist'"
   },
   "dependencies": {

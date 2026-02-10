@@ -49,16 +49,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   project,
   minDonationAmount = BigInt(1_000_000),
 }) => {
-  const [activeTab, setActiveTab] = useState<'about' | 'updates' | 'sponsors'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'updates' | 'supporters'>('about');
   const { isOwner, projectCapId } = useProjectCap(project.id);
   
   // 使用統一的 API 獲取項目詳情（包含 updates 和 supporters）
   const { data: projectDetail, isLoading: detailLoading, refetch: refetchDetail } = useProjectDetail(project.id);
   
   const updates = projectDetail?.updates || [];
-  const sponsors = projectDetail?.supporters || [];
+  const supporters = projectDetail?.supporters || [];
   const updatesLoading = detailLoading;
-  const sponsorsLoading = detailLoading;
+  const supportersLoading = detailLoading;
   
   // 刷新函數 - 重新獲取所有數據
   const refetchUpdates = refetchDetail;
@@ -66,7 +66,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const tabs = [
     { id: 'about', label: 'Story' },
     { id: 'updates', label: 'Updates', badge: updates.length },
-    { id: 'sponsors', label: 'Supporters', badge: project.supporterCount },
+    { id: 'supporters', label: 'Supporters', badge: project.supporterCount },
   ];
 
   return (
@@ -230,13 +230,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </div>
               )}
 
-              {activeTab === 'sponsors' && (
+              {activeTab === 'supporters' && (
                 <div className="space-y-8">
                   <div>
                     <h3 className="text-2xl font-serif text-ink-900">Active Supporters</h3>
                     <p className="text-sm text-ink-500 mt-2">
                       Showing supporters currently backing this project
-                      {project.supporterCount > sponsors.length && (
+                      {project.supporterCount > supporters.length && (
                         <span className="ml-1">
                           • {project.supporterCount} total supporters all-time
                         </span>
@@ -244,13 +244,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </p>
                   </div>
                   
-                  {sponsorsLoading ? (
+                  {supportersLoading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="h-20 bg-ink-50 rounded-xl animate-pulse"></div>
                       ))}
                     </div>
-                  ) : sponsors.length === 0 ? (
+                  ) : supporters.length === 0 ? (
                     <div className="text-center py-16 bg-canvas-subtle rounded-3xl border border-dashed border-ink-300/20">
                       <div className="w-16 h-16 bg-ink-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -266,21 +266,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                   ) : (
                     <div className="border border-ink-200 rounded-2xl overflow-hidden bg-white">
-                      {sponsors.map((sponsor, index) => (
-                        <div key={sponsor.address} className={`flex items-center justify-between p-4 ${
-                          index !== sponsors.length - 1 ? 'border-b border-ink-100' : ''
+                      {supporters.map((supporter, index) => (
+                        <div key={supporter.address} className={`flex items-center justify-between p-4 ${
+                          index !== supporters.length - 1 ? 'border-b border-ink-100' : ''
                         }`}>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-ink-50 flex items-center justify-center text-xs font-mono text-ink-600 border border-ink-100">
-                              {sponsor.address.slice(0, 2)}
+                              {supporter.address.slice(0, 2)}
                             </div>
                             <div>
-                              <p className="font-bold text-ink-900 font-mono text-sm tracking-tight">{formatAddress(sponsor.address)}</p>
-                              <p className="text-xs font-medium text-ink-400 mt-0.5">{formatTimestamp(sponsor.lastUpdated)}</p>
+                              <p className="font-bold text-ink-900 font-mono text-sm tracking-tight">{formatAddress(supporter.address)}</p>
+                              <p className="text-xs font-medium text-ink-400 mt-0.5">{formatTimestamp(supporter.lastUpdated)}</p>
                             </div>
                           </div>
                           <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-md text-sm tabular-nums border border-ink-100">
-                            ${formatBalance(BigInt(sponsor.amount))}
+                            ${formatBalance(BigInt(supporter.amount))}
                           </span>
                         </div>
                       ))}

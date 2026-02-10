@@ -14,9 +14,13 @@
 ```bash
 # 前端開發
 cd frontend
+cp .env.local.example .env.local   # 複製範例，再編輯 .env.local 填入實際值
 npm install
 npm run dev
 ```
+
+必填的 `.env.local` 變數：`NEXT_PUBLIC_SUI_NETWORK`、`NEXT_PUBLIC_PACKAGE_ID`、`NEXT_PUBLIC_PLATFORM_ID`；其餘見 [docs/deployment.md](./docs/deployment.md)。  
+**gRPC（可選）**：若需啟用 [Surflux](https://surflux.dev) gRPC，在 `.env.local` 設定 `SUI_GRPC_ENDPOINT=grpc.surflux.dev` 與 `SUI_GRPC_TOKEN`（勿用 `NEXT_PUBLIC_`）；未設定則自動使用 HTTP。詳見 [docs/GRPC_FINAL_WORKING_STATUS.md](./docs/GRPC_FINAL_WORKING_STATUS.md)。
 
 ```bash
 # 合約編譯與部署
@@ -25,14 +29,7 @@ sui move build
 sui client publish
 ```
 
-部署後在 `frontend/` 建立 `.env.local` 並設定：
-
-- `NEXT_PUBLIC_SUI_NETWORK`（如 mainnet）
-- `NEXT_PUBLIC_PACKAGE_ID`
-- `NEXT_PUBLIC_PLATFORM_ID`
-- 其他所需變數見 [docs/deployment.md](./docs/deployment.md)
-
-合約已部署至 Mainnet，Package ID、環境變數與交易連結見 [docs/deployment.md](./docs/deployment.md)。
+部署後將產生的 Package ID、Platform ID 等寫回 `frontend/.env.local`；完整清單與 Mainnet 資訊見 [docs/deployment.md](./docs/deployment.md)。
 
 ## 功能
 
