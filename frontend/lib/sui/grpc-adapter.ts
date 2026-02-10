@@ -96,34 +96,14 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
 
   return {
     async getObject(params) {
-      try {
-        // 構建 read_mask
-        const readMask: string[] = ['object.object_id', 'object.version', 'object.digest'];
-        
-        if (params.options?.showContent) readMask.push('object.content');
-        if (params.options?.showOwner) readMask.push('object.owner');
-        if (params.options?.showType) readMask.push('object.type');
-        if (params.options?.showBcs) readMask.push('object.bcs');
-        if (params.options?.showStorageRebate) readMask.push('object.storage_rebate');
-        if (params.options?.showPreviousTransaction) readMask.push('object.previous_transaction');
-        if (params.options?.showDisplay) readMask.push('object.display');
-        
-        const { response } = await grpcClient.ledgerService.getObject({
-          object_id: params.id,
-          read_mask: { paths: readMask },
-        });
-        
-        // 轉換為 SuiClient 格式
-        return {
-          data: response.object,
-        };
-      } catch (error) {
-        console.error('getObject error:', error);
-        throw error;
-      }
+      // ⚠️ Surflux gRPC getObject 格式問題，回退到 HTTP
+      console.log('⚠️  getObject using HTTP fallback for compatibility');
+      const { suiClient } = await import('./client');
+      return suiClient.getObject(params);
     },
 
     async getOwnedObjects(params) {
+      // ✅ 使用 gRPC（此方法通常工作正常）
       try {
         const { response } = await grpcClient.stateService.listOwnedObjects({
           owner: params.owner,
@@ -139,8 +119,10 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
           hasNextPage: !!response.next_cursor,
         };
       } catch (error) {
-        console.error('getOwnedObjects error:', error);
-        throw error;
+        console.error('getOwnedObjects error, falling back to HTTP:', error);
+        // 回退到 HTTP
+        const { suiClient } = await import('./client');
+        return suiClient.getOwnedObjects(params);
       }
     },
 
@@ -163,8 +145,9 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
           data: response.transaction,
         };
       } catch (error) {
-        console.error('getTransactionBlock error:', error);
-        throw error;
+        console.error('getTransactionBlock error, falling back to HTTP:', error);
+        const { suiClient } = await import('./client');
+        return suiClient.getTransactionBlock(params);
       }
     },
 
@@ -201,8 +184,9 @@ export function createGrpcSuiAdapter(): GrpcSuiClientAdapter | null {
           lockedBalance: response.locked_balance,
         };
       } catch (error) {
-        console.error('getBalance error:', error);
-        throw error;
+        console.error('getBalance error, falling back to HTTP:', error);
+        const { suiClient } = await import('./client');
+        return suiClient.getBalance(params);
       }
     },
 
