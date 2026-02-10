@@ -27,10 +27,10 @@ export const Hero: React.FC = () => {
         <div className="pt-20 pb-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
           <h1 className="text-5xl font-serif font-medium tracking-tight text-ink-900 sm:text-6xl mb-6">
-            Fund Projects, Earn Yield
+            Make Giving Painless
           </h1>
           <p className="text-xl leading-8 text-ink-700 font-sans mb-10 max-w-xl mx-auto">
-            GoodVibe allows you to deposit USDC into a vault, earn yield through Stable Layer, and automatically donate a portion of your yield to projects you care about.
+            Support projects you believe in with the yield from your idle funds. Keep your principal safe and accessible with instant liquidity whenever you need it.
           </p>
           
           <div className="flex items-center justify-center gap-x-6">
@@ -53,7 +53,7 @@ export const Hero: React.FC = () => {
             <div className="md:col-span-4">
               <h2 className="text-4xl font-serif text-ink-900 mb-4">Powered by StableLayer</h2>
               <p className="text-ink-700 text-lg">
-                GoodVibe leverages StableLayer's yield infrastructure to generate sustainable returns from your USDC deposits. Learn more about the technology behind our platform.
+                GoodVibe uses StableLayer's btcUSDC to generate sustainable yield. Your assets remain in your control while earning returns. Learn more about the technology behind our platform.
               </p>
             </div>
             

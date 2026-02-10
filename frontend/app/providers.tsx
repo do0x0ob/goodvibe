@@ -1,5 +1,13 @@
 "use client";
 
+// Initialize Buffer polyfill for stable-layer-sdk and pyth-sui-js
+import { Buffer } from 'buffer';
+if (typeof window !== 'undefined') {
+  window.Buffer = window.Buffer || Buffer;
+  // Also set global for compatibility
+  (globalThis as any).Buffer = Buffer;
+}
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
 import { getFullnodeUrl } from "@mysten/sui/client";

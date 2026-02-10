@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Project } from '@/types/project';
 import Link from 'next/link';
 import { Card } from '../ui/Card';
+import { formatBalance } from '@/utils/formatters';
 
 interface ProjectsViewProps {
   projects: Project[];
@@ -62,12 +63,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (!projects) return { total: 0, totalRaised: BigInt(0), totalSupporters: 0 };
+    if (!projects) return { total: 0, totalRaised: BigInt(0), totalSponsors: 0 };
     
     return {
       total: projects.length,
-      totalRaised: projects.reduce((sum, p) => sum + p.raisedAmount, BigInt(0)),
-      totalSupporters: projects.reduce((sum, p) => sum + p.supporterCount, 0)
+      totalRaised: projects.reduce((sum, p) => sum + (p.totalSupportAmount || p.raisedAmount), BigInt(0)),
+      totalSponsors: projects.reduce((sum, p) => sum + p.supporterCount, 0)
     };
   }, [projects]);
 
@@ -102,13 +103,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
           <div>
             <div className="text-3xl font-serif text-ink-900 mb-1">
-              {(Number(stats.totalRaised) / 1_000_000).toFixed(1)}K
+              ${formatBalance(stats.totalRaised)}
             </div>
             <div className="text-xs text-ink-500 uppercase tracking-wide">Total Raised (USDC)</div>
           </div>
           <div>
-            <div className="text-3xl font-serif text-ink-900 mb-1">{stats.totalSupporters}</div>
-            <div className="text-xs text-ink-500 uppercase tracking-wide">Total Supporters</div>
+            <div className="text-3xl font-serif text-ink-900 mb-1">{stats.totalSponsors}</div>
+            <div className="text-xs text-ink-500 uppercase tracking-wide">Total Sponsors</div>
           </div>
         </div>
       </div>
@@ -196,7 +197,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         {project.category}
                       </span>
                       <span className="text-xs text-ink-400 font-mono">
-                        Jan 15, 2026
+                        {project.createdAt 
+                          ? new Date(Number(project.createdAt)).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })
+                          : 'Recently'
+                        }
                       </span>
                     </div>
                     <h4 className="font-serif text-xl text-ink-900 group-hover:text-accent-primary transition-colors mb-2 leading-tight">
@@ -211,11 +219,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       <div className="flex justify-between text-sm">
                         <span className="text-ink-500">Raised</span>
                         <span className="font-medium text-ink-900">
-                          {(Number(project.raisedAmount) / 1_000_000).toFixed(2)} USDC
+                          ${formatBalance(project.totalSupportAmount || project.raisedAmount)} USDC
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-ink-500">Supporters</span>
+                        <span className="text-ink-500">Sponsors</span>
                         <span className="font-medium text-ink-900">{project.supporterCount}</span>
                       </div>
                       <div className="pt-2">

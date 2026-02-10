@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
-import { PACKAGE_ID, SUI_NETWORK } from '@/config/sui';
+import { PACKAGE_ID } from '@/config/sui';
 import { Project } from '@/types/project';
+import { suiClient } from '@/lib/sui/client';
+import { getAllProjects } from '@/lib/sui/queries';
 
 // Simple in-memory cache
 let cachedProjects: Project[] | null = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 60 * 1000; // 1 minute
+const CACHE_TTL = 10 * 1000; // 10 seconds (reduced for testing)
 
 // Mock data
 const MOCK_PROJECTS: Project[] = [
@@ -132,10 +133,6 @@ const MOCK_PROJECTS: Project[] = [
     },
 ];
 
-const suiClient = new SuiClient({
-    url: getFullnodeUrl(SUI_NETWORK as 'mainnet' | 'testnet' | 'devnet' | 'localnet'),
-});
-
 export async function GET() {
     console.log('Fetching projects...');
     const now = Date.now();
@@ -153,35 +150,39 @@ export async function GET() {
     try {
         let realProjects: Project[] = [];
 
-        // Only fetch if PACKAGE_ID is configured
+        // Prioritize real chain data if PACKAGE_ID is configured
         if (PACKAGE_ID) {
             console.log('Fetching from chain with PACKAGE_ID:', PACKAGE_ID);
-            const events = await suiClient.queryEvents({
-                query: { MoveEventType: `${PACKAGE_ID}::project::ProjectCreated` },
-                // Limit to recent events or implement pagination if needed
-                limit: 50, 
-            });
-
-            realProjects = events.data.map((event) => {
-                const parsed = event.parsedJson as any;
-                return {
-                    id: parsed.project_id,
-                    title: parsed.title,
-                    description: parsed.description,
-                    category: parsed.category,
-                    imageUrl: parsed.cover_url,
-                    creator: event.sender,
-                    raisedAmount: BigInt(0), // In a real app, we might need to fetch objects to get current state
-                    supporterCount: 0,
-                } as Project;
-            });
-            console.log(`Fetched ${realProjects.length} projects from chain`);
+            try {
+                const chainProjects = await getAllProjects(suiClient, PACKAGE_ID);
+                realProjects = chainProjects.map((p) => {
+                    console.log(`Project ${p.title}: totalSupportAmount=${p.totalSupportAmount}, raisedAmount=${p.raisedAmount}, createdAt=${p.createdAt}`);
+                    return {
+                        id: p.id,
+                        title: p.title,
+                        description: p.description,
+                        category: p.category,
+                        imageUrl: p.imageUrl,
+                        creator: p.creator,
+                        raisedAmount: p.totalSupportAmount || p.raisedAmount, // 優先使用 totalSupportAmount
+                        totalSupportAmount: p.totalSupportAmount,
+                        supporterCount: p.supporterCount,
+                        createdAt: p.createdAt,
+                        isActive: p.isActive,
+                        balance: p.balance,
+                    };
+                });
+                console.log(`Fetched ${realProjects.length} projects from chain`);
+            } catch (error) {
+                console.error('Error fetching projects from chain:', error);
+                // Continue to fallback logic below
+            }
         } else {
             console.log('PACKAGE_ID not configured, skipping chain fetch');
         }
 
-        // Merge mock and real projects
-        const allProjects = [...realProjects, ...MOCK_PROJECTS];
+        // Use real projects if available, otherwise fallback to mock
+        const allProjects = realProjects.length > 0 ? realProjects : MOCK_PROJECTS;
         
         // Update cache
         cachedProjects = allProjects;
@@ -191,6 +192,9 @@ export async function GET() {
         const serializedProjects = allProjects.map(p => ({
             ...p,
             raisedAmount: p.raisedAmount.toString(),
+            totalSupportAmount: p.totalSupportAmount?.toString(),
+            createdAt: p.createdAt?.toString(),
+            balance: p.balance?.toString(),
         }));
 
         console.log('Returning projects:', serializedProjects.length);
@@ -201,7 +205,12 @@ export async function GET() {
         const serializedMocks = MOCK_PROJECTS.map(p => ({
             ...p,
             raisedAmount: p.raisedAmount.toString(),
+            totalSupportAmount: p.totalSupportAmount?.toString(),
+            createdAt: p.createdAt?.toString(),
+            balance: p.balance?.toString(),
         }));
+        cachedProjects = MOCK_PROJECTS;
+        lastFetchTime = now;
         return NextResponse.json(serializedMocks);
     }
 }

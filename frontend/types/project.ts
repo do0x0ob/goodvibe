@@ -5,6 +5,10 @@ export interface Project {
   category: string;
   imageUrl: string;
   creator: string;
-  raisedAmount: bigint;
+  raisedAmount: bigint;         
   supporterCount: number;
+  totalSupportAmount?: bigint;      
+  balance?: bigint;                 
+  isActive?: boolean;                
+  createdAt?: bigint;                
 }

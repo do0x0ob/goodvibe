@@ -1,6 +1,6 @@
 # GoodVibe
 
-基於 Stable Layer SDK 的 DeFi 公益募資平台。用戶存入 USDC 到 Stable Layer 獲取收益，並將收益捐贈給募資項目。
+基於 Stable Layer SDK 的 DeFi 公益募資平台。用戶 mint btcUSDC 支持項目，資產保持在錢包中產生收益，用戶主動 claim 收益並選擇捐贈給支持的項目。
 
 ## 技術棧
 
@@ -27,8 +27,9 @@ sui client publish --gas-budget 100000000
 
 ## 功能
 
-- 存入 USDC 到 Stable Layer 獲取收益
-- 管理個人金庫（存款/提款/領取收益）
-- 探索募資項目並配置捐贈比例
-- 查看平台統計數據
-- 項目創建者管理功能
+- Mint btcUSDC 支持項目（資產留在用戶錢包）
+- 持有 btcUSDC 產生收益
+- 主動 claim 收益並捐贈給支持的項目
+- 隨時提取支持（burn btcUSDC 換回 USDC）
+- 探索募資項目並查看進度
+- 項目創建者提取捐贈並發布更新

@@ -1,12 +1,36 @@
 'use client';
 
 import React from 'react';
-import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
+import { ConnectButton } from '@mysten/dapp-kit';
 import Link from 'next/link';
+import { useSearchParams, usePathname } from 'next/navigation';
+
+const navLinkClass = 'text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors';
+
+/**
+ * Header nav link by page:
+ * - Landing: empty
+ * - Projects: Dashboard
+ * - Project detail: Dashboard
+ * - Dashboard: Projects
+ */
+function getHeaderNavLink(pathname: string, view: string | null): 'dashboard' | 'projects' | null {
+  const isRoot = pathname === '/';
+  const isProjectDetail = pathname.startsWith('/project/');
+
+  if (isRoot && view === null) return null; // landing
+  if (isRoot && view === 'dashboard') return 'projects';
+  if (isRoot && view === 'projects') return 'dashboard';
+  if (isProjectDetail) return 'dashboard';
+
+  return null;
+}
 
 export const Header: React.FC = () => {
-  const account = useCurrentAccount();
-  
+  const pathname = usePathname();
+  const view = useSearchParams().get('view');
+  const navLink = getHeaderNavLink(pathname, view);
+
   return (
     <header className="bg-canvas-default/80 backdrop-blur-md border-b border-ink-300/20 fixed top-0 w-full z-40 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -18,12 +42,14 @@ export const Header: React.FC = () => {
               </span>
             </Link>
             <nav className="hidden md:flex space-x-6">
-              <Link href="/?view=projects" className="text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors">
-                Projects
-              </Link>
-              {account && (
-                <Link href="/?view=dashboard" className="text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors">
+              {navLink === 'dashboard' && (
+                <Link href="/?view=dashboard" className={navLinkClass}>
                   Dashboard
+                </Link>
+              )}
+              {navLink === 'projects' && (
+                <Link href="/?view=projects" className={navLinkClass}>
+                  Projects
                 </Link>
               )}
             </nav>

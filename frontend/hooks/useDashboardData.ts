@@ -1,26 +1,21 @@
+'use client';
+
 import { useQuery } from '@tanstack/react-query';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import axios from 'axios';
 
 export interface DashboardData {
-  vault: {
-    id: string;
-    balance: bigint;
-    owner: string;
-    apy: number;
-  } | null;
-  donations: Array<{
+  supportedProjects: Array<{
     projectId: string;
-    percentage: number;
-    totalDonated: bigint;
+    projectName: string;
+    donationAmount: bigint;
   }>;
-  stats: {
-    totalDonated: bigint;
-    activeProjects: number;
-    estimatedYield: bigint;
-  };
 }
 
-export function useDashboardData(userAddress: string | undefined) {
+export function useDashboardData() {
+  const account = useCurrentAccount();
+  const userAddress = account?.address;
+
   return useQuery({
     queryKey: ['dashboard', userAddress],
     queryFn: async () => {
@@ -29,24 +24,19 @@ export function useDashboardData(userAddress: string | undefined) {
       const response = await axios.get(`/api/dashboard?address=${userAddress}`);
       const data = response.data;
       
-      // Convert string back to BigInt
       return {
-        vault: data.vault ? {
-          ...data.vault,
-          balance: BigInt(data.vault.balance),
-        } : null,
-        donations: data.donations.map((d: any) => ({
-          ...d,
-          totalDonated: BigInt(d.totalDonated),
+        supportedProjects: (data.supportedProjects || []).map((p: {
+          projectId: string;
+          projectName: string;
+          donationAmount: string;
+        }) => ({
+          projectId: p.projectId,
+          projectName: p.projectName,
+          donationAmount: BigInt(p.donationAmount),
         })),
-        stats: {
-          ...data.stats,
-          totalDonated: BigInt(data.stats.totalDonated),
-          estimatedYield: BigInt(data.stats.estimatedYield),
-        },
       } as DashboardData;
     },
     enabled: !!userAddress,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }

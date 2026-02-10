@@ -2,26 +2,16 @@
 
 import { useProject } from "@/hooks/useProjects";
 import { ProjectDetail } from "@/components/project/ProjectDetail";
-import { Container } from "@/components/layout/Container";
 import Link from "next/link";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useParams } from "next/navigation";
-import { useMockData } from "@/contexts/MockDataContext";
+import { MIN_SUPPORT_AMOUNT } from "@/config/sui";
 
 export default function ProjectPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const { data: project, isLoading } = useProject(projectId);
   const account = useCurrentAccount();
-  const { hasMockVault, createMockVault } = useMockData();
-
-  const hasVault = hasMockVault;
-
-  const handleCreateMockVault = () => {
-    if (account) {
-      createMockVault(account.address);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -72,8 +62,7 @@ export default function ProjectPage() {
       <ProjectDetail 
         project={project}
         isCreator={isCreator}
-        hasVault={hasVault}
-        onCreateMockVault={handleCreateMockVault}
+        minDonationAmount={MIN_SUPPORT_AMOUNT}
       />
       
       <div className="py-12"></div>

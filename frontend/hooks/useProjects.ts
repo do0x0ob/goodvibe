@@ -2,6 +2,8 @@ import { useSuiClient } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
 import { Project } from '@/types/project';
 import axios from 'axios';
+import { getProjectById } from '@/lib/sui/queries';
+import { PACKAGE_ID } from '@/config/sui';
 
 // Mock data (keep local for useProject fallback)
 const MOCK_PROJECTS: Project[] = [
@@ -141,6 +143,9 @@ export function useProjects() {
         const convertedProjects = projects.map((p: any) => ({
           ...p,
           raisedAmount: BigInt(p.raisedAmount),
+          totalSupportAmount: p.totalSupportAmount ? BigInt(p.totalSupportAmount) : undefined,
+          createdAt: p.createdAt ? BigInt(p.createdAt) : undefined,
+          balance: p.balance ? BigInt(p.balance) : undefined,
         })) as Project[];
         
         console.log('useProjects: Converted projects count:', convertedProjects.length);
@@ -161,44 +166,13 @@ export function useProject(projectId: string) {
     return useQuery({
         queryKey: ['project', projectId],
         queryFn: async () => {
-            console.log('useProject: Looking for project:', projectId);
-            
-            // Check mocks first
+            // 先查 mock（用於首頁列表的 mock 項目）
             const mock = MOCK_PROJECTS.find(p => p.id === projectId);
-            if (mock) {
-                console.log('useProject: Found mock project:', mock.title);
-                return mock;
-            }
+            if (mock) return mock;
 
-            console.log('useProject: Not found in mocks, trying blockchain...');
-            
-            try {
-                const project = await suiClient.getObject({
-                    id: projectId,
-                    options: { showContent: true },
-                });
-                
-                const fields = project.data?.content?.fields as any;
-                
-                if (!fields) {
-                    console.log('useProject: No fields found in blockchain object');
-                    return null;
-                }
-                
-                return {
-                    id: projectId,
-                    title: fields?.title,
-                    description: fields?.description,
-                    category: fields?.category,
-                    imageUrl: fields?.cover_url,
-                    creator: fields?.creator,
-                    raisedAmount: BigInt(fields?.raised_amount || 0),
-                    supporterCount: Number(fields?.supporter_count || 0),
-                } as Project;
-            } catch (error) {
-                console.error('useProject: Error fetching from blockchain:', error);
-                return null;
-            }
+            // 再從鏈上查詢（與 API / getAllProjects 相同解析）
+            const project = await getProjectById(suiClient, projectId, PACKAGE_ID);
+            return project as Project | null;
         },
         enabled: !!projectId,
     });

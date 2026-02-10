@@ -1,245 +1,268 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '../ui/Button';
-import { Project } from '@/types/project';
 import Link from 'next/link';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatBalance } from '@/utils/formatters';
+import { PACKAGE_ID } from '@/config/sui';
+import { getProjectById, getProjectUpdates, getProjectSupportersFromEvents } from '@/lib/sui/queries';
+import { createStableLayerClient } from '@/utils/stableLayerTx';
+import { buildClaimYieldTx } from '@/utils/yieldTx';
+import { useTransaction } from '@/hooks/useTransaction';
+import toast from 'react-hot-toast';
 
 interface MyProjectsManagerProps {
   userAddress: string;
+  className?: string;
 }
 
-export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddress }) => {
-  const [activeView, setActiveView] = useState<'created' | 'form'>('created');
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: 'Environment',
-    imageUrl: '',
-    goalAmount: '',
-  });
+interface OwnedProjectData {
+  projectId: string;
+  projectCapId: string;
+  title: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  balance: bigint;
+  totalReceived: bigint;
+  totalSupportAmount: bigint;
+  supporterCount: number;
+  updatesCount: number;
+  isActive: boolean;
+  createdAt: bigint;
+}
 
-  // Mock created projects - 使用已存在的 mock projects
-  const myProjects: Project[] = [
-    {
-      id: 'mock-3',
-      title: 'Wildlife Conservation Network',
-      description: 'Protecting endangered species through technology-driven monitoring and anti-poaching systems. We use AI and satellite imaging to track and protect wildlife.',
-      category: 'Wildlife',
-      imageUrl: 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?q=80&w=2076&auto=format&fit=crop',
-      creator: userAddress,
-      raisedAmount: BigInt(38500_000_000), // 38,500 USDC
-      supporterCount: 1089,
-    },
-  ];
+/**
+ * 我的項目管理器 - 垂直版
+ * 顯示用戶創建的所有項目及其統計數據，適合放在側邊欄
+ */
+export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddress, className = '' }) => {
+  const client = useSuiClient();
+  const account = useCurrentAccount();
+  const queryClient = useQueryClient();
+  const { execute, isExecuting } = useTransaction();
+  const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Creating project:', formData);
-    // 實際應該調用合約方法創建項目
+  // Claim Reward 功能
+  const handleClaimReward = async () => {
+    if (!account?.address) return;
+    const stableClient = createStableLayerClient(account.address);
+    const tx = await buildClaimYieldTx(stableClient, account.address);
+    await execute(tx, {
+      loadingMessage: 'Claiming reward...',
+      successMessage: 'Reward claimed successfully',
+      errorMessage: 'Failed to claim reward',
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account.address] });
+        await queryClient.invalidateQueries({ queryKey: ['ownedProjects', userAddress] });
+      },
+    });
   };
 
+  // 導出 Active Supporters
+  const handleExportSupporters = async (projectId: string, projectTitle: string) => {
+    setExportingProjectId(projectId);
+    try {
+      toast.loading('Fetching supporters data...');
+      
+      // 獲取項目的 active supporters
+      const supporters = await getProjectSupportersFromEvents(client, PACKAGE_ID, projectId);
+      
+      if (supporters.length === 0) {
+        toast.dismiss();
+        toast.error('No active supporters found for this project');
+        return;
+      }
+
+      // 格式化為 CSV
+      const csvHeaders = 'Address,Support Amount (USDC),Last Updated\n';
+      const csvRows = supporters.map(supporter => {
+        const amount = (Number(supporter.amount) / 1_000_000).toFixed(2); // 轉換為 USDC
+        const date = new Date(supporter.lastUpdated).toISOString();
+        return `${supporter.address},${amount},${date}`;
+      }).join('\n');
+      
+      const csvContent = csvHeaders + csvRows;
+      
+      // 創建並下載文件
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      // 使用項目標題和日期生成文件名
+      const fileName = `${projectTitle.replace(/[^a-z0-9]/gi, '_')}_supporters_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.dismiss();
+      toast.success(`Exported ${supporters.length} active supporters`);
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(`Failed to export: ${error.message}`);
+      console.error('[ExportSupporters] Error:', error);
+    } finally {
+      setExportingProjectId(null);
+    }
+  };
+
+  // 查詢用戶擁有的 ProjectCap 並獲取項目數據
+  const { data: myProjects = [], isLoading } = useQuery({
+    queryKey: ['ownedProjects', userAddress],
+    queryFn: async () => {
+      console.log('[MyProjectsManager] Fetching projects for:', userAddress);
+
+      // 1. 獲取用戶擁有的所有 ProjectCap
+      const capsResponse = await client.getOwnedObjects({
+        owner: userAddress,
+        filter: { StructType: `${PACKAGE_ID}::project::ProjectCap` },
+        options: { showContent: true },
+      });
+
+      console.log('[MyProjectsManager] Found ProjectCaps:', capsResponse.data.length);
+
+      if (capsResponse.data.length === 0) {
+        return [];
+      }
+
+      // 2. 並行獲取每個項目的詳細信息
+      const projects = await Promise.all(
+        capsResponse.data.map(async (capObj) => {
+          try {
+            const capFields = (capObj.data?.content as any)?.fields;
+            if (!capFields) return null;
+
+            const projectId = capFields.project_id;
+            const projectCapId = capObj.data!.objectId;
+
+            // 並行獲取項目數據和 updates
+            const [projectData, updates] = await Promise.all([
+              getProjectById(client, projectId, PACKAGE_ID),
+              getProjectUpdates(client, projectId, PACKAGE_ID),
+            ]);
+
+            if (!projectData) return null;
+
+            return {
+              projectId,
+              projectCapId,
+              title: projectData.title,
+              description: projectData.description,
+              category: projectData.category,
+              imageUrl: projectData.imageUrl,
+              balance: projectData.balance || BigInt(0),
+              totalReceived: projectData.raisedAmount,
+              totalSupportAmount: projectData.totalSupportAmount || BigInt(0),
+              supporterCount: projectData.supporterCount,
+              updatesCount: updates.length,
+              isActive: projectData.isActive ?? true,
+              createdAt: projectData.createdAt || BigInt(0),
+            } as OwnedProjectData;
+          } catch (err) {
+            console.error('[MyProjectsManager] Error processing project:', err);
+            return null;
+          }
+        })
+      );
+
+      const validProjects = projects.filter((p): p is OwnedProjectData => p !== null);
+      
+      // 按創建時間排序（最新的在前）
+      validProjects.sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+
+      console.log('[MyProjectsManager] Returning projects:', validProjects.length);
+      return validProjects;
+    },
+    enabled: !!userAddress && !!PACKAGE_ID,
+    staleTime: 30000,
+  });
+
+  // Calculate stats
+  const stats = React.useMemo(() => {
+    return {
+      totalProjects: myProjects.length,
+      totalSupportReceived: myProjects.reduce((sum, p) => sum + p.totalSupportAmount, BigInt(0)),
+      totalSupporters: myProjects.reduce((sum, p) => sum + p.supporterCount, 0),
+    };
+  }, [myProjects]);
+
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="bg-surface rounded-2xl border border-ink-300/20 shadow-sm overflow-hidden">
-        <div className="border-b border-ink-300/20">
-          <nav className="flex" aria-label="Tabs">
-            <button
-              onClick={() => setActiveView('created')}
-              className={`flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 transition-colors ${
-                activeView === 'created'
-                  ? 'border-ink-900 text-ink-900'
-                  : 'border-transparent text-ink-500 hover:text-ink-700 hover:border-ink-300'
-              }`}
-            >
-              My Projects ({myProjects.length})
-            </button>
-            <button
-              onClick={() => setActiveView('form')}
-              className={`flex-1 py-4 px-6 text-center text-sm font-medium border-b-2 transition-colors ${
-                activeView === 'form'
-                  ? 'border-ink-900 text-ink-900'
-                  : 'border-transparent text-ink-500 hover:text-ink-700 hover:border-ink-300'
-              }`}
-            >
-              Create New Project
-            </button>
-          </nav>
+    <div className={`rounded-3xl p-8 h-full flex flex-col ${className}`}>
+      {/* Header Section */}
+      <div className="mb-6">
+        <h2 className="text-3xl font-serif font-medium text-ink-900 mb-2 leading-tight">
+          My Projects
+        </h2>
+        <div className="flex gap-4 text-xs font-bold text-ink-500 uppercase tracking-widest">
+           <span>{stats.totalProjects} Created</span>
+           <span>•</span>
+           <span>${formatBalance(stats.totalSupportReceived)} Raised</span>
         </div>
+      </div>
 
-        <div className="p-6">
-          {activeView === 'created' ? (
-            // My Projects List
-            <div className="space-y-4">
-              {myProjects.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-ink-300/30 rounded-xl">
-                  <svg className="w-12 h-12 text-ink-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      {/* Projects List - Vertical Stack */}
+      <div className="flex-1 overflow-y-auto pr-2 -mr-2 space-y-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-24 bg-white/20 rounded-xl animate-pulse"></div>
+            ))}
+          </div>
+        ) : myProjects.length === 0 ? (
+          <div className="h-40 flex flex-col items-center justify-center p-4 bg-white/40 rounded-xl border border-white/50 text-center">
+            <p className="text-ink-600 mb-2 text-sm">No projects yet.</p>
+            <div className="text-xs text-ink-400">Contact admin to create</div>
+          </div>
+        ) : (
+          myProjects.map((project) => (
+            <div
+              key={project.projectId}
+              className="group bg-white/40 hover:bg-white/80 transition-all duration-300 rounded-xl p-4 border border-transparent hover:border-white hover:shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${project.isActive ? 'bg-ink-900 text-white' : 'bg-ink-200 text-ink-500'}`}>
+                  {project.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span className="text-xs font-bold text-ink-700">
+                  ${formatBalance(project.totalSupportAmount)}
+                </span>
+              </div>
+
+              <Link href={`/project/${project.projectId}/manage`} className="block mb-3">
+                <h3 className="text-lg font-serif text-ink-900 group-hover:text-ink-700 transition-colors line-clamp-1">
+                  {project.title}
+                </h3>
+                <div className="text-[10px] text-ink-500 mt-1">
+                    {project.supporterCount} Supporters • {project.updatesCount} Updates
+                </div>
+              </Link>
+
+              <div className="flex gap-2">
+                <Link 
+                  href={`/project/${project.projectId}/manage`}
+                  className="flex-1 text-center py-1.5 px-2 text-[10px] font-bold text-ink-900 bg-ink-900/5 hover:bg-ink-900 hover:text-white rounded-lg transition-all"
+                >
+                  Manage
+                </Link>
+                <button
+                  onClick={() => handleExportSupporters(project.projectId, project.title)}
+                  disabled={exportingProjectId === project.projectId || project.supporterCount === 0}
+                  className="w-8 h-8 flex items-center justify-center text-ink-500 hover:text-ink-900 bg-white/50 hover:bg-white rounded-lg transition-all"
+                  title="Export supporters"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-sm text-ink-500 mb-4">No projects created yet</p>
-                  <Button onClick={() => setActiveView('form')} size="sm">
-                    Create Your First Project
-                  </Button>
-                </div>
-              ) : (
-                myProjects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-ink-300/20 hover:border-ink-300/40 transition-all group"
-                  >
-                    {project.imageUrl && (
-                      <img
-                        src={project.imageUrl}
-                        alt={project.title}
-                        className="w-20 h-20 rounded-lg object-cover"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-1">
-                        <div>
-                          <Link href={`/project/${project.id}`}>
-                            <h4 className="font-serif text-lg text-ink-900 group-hover:text-accent-primary transition-colors">
-                              {project.title}
-                            </h4>
-                          </Link>
-                          <p className="text-xs text-ink-500">{project.category}</p>
-                        </div>
-                        <span className="text-xs text-ink-400 bg-canvas-sage px-2 py-1 rounded-full">
-                          Active
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-6 mt-2 text-sm text-ink-600">
-                        <span>${(Number(project.raisedAmount) / 1_000_000).toFixed(2)} raised</span>
-                        <span>{project.supporterCount} supporters</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link href={`/project/${project.id}/manage`}>
-                        <Button variant="outline" size="sm">
-                          Manage
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))
-              )}
+                </button>
+              </div>
             </div>
-          ) : (
-            // Create Project Form
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">
-                  Project Title *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="block w-full rounded-lg border border-ink-300/30 px-4 py-3 focus:border-ink-900 focus:ring-1 focus:ring-ink-900 text-base bg-surface transition-colors"
-                  placeholder="Give your project a descriptive title"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">
-                  Category *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="block w-full rounded-lg border border-ink-300/30 px-4 py-3 focus:border-ink-900 focus:ring-1 focus:ring-ink-900 text-base bg-surface transition-colors"
-                  required
-                >
-                  <option value="Environment">Environment</option>
-                  <option value="Wildlife">Wildlife</option>
-                  <option value="Education">Education</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Community">Community</option>
-                  <option value="Arts & Culture">Arts & Culture</option>
-                  <option value="Research">Research</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="block w-full rounded-lg border border-ink-300/30 px-4 py-3 focus:border-ink-900 focus:ring-1 focus:ring-ink-900 text-base bg-surface transition-colors resize-none"
-                  placeholder="Describe your project, its goals, and how the funds will be used"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">
-                  Cover Image URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="block w-full rounded-lg border border-ink-300/30 px-4 py-3 focus:border-ink-900 focus:ring-1 focus:ring-ink-900 text-base bg-surface transition-colors"
-                  placeholder="https://example.com/image.jpg"
-                />
-                {formData.imageUrl && (
-                  <div className="mt-3">
-                    <img
-                      src={formData.imageUrl}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded-lg border border-ink-300/20"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">
-                  Funding Goal (USDC)
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                    <span className="text-ink-500 text-sm">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={formData.goalAmount}
-                    onChange={(e) => setFormData({ ...formData, goalAmount: e.target.value })}
-                    className="block w-full rounded-lg border border-ink-300/30 pl-8 pr-4 py-3 focus:border-ink-900 focus:ring-1 focus:ring-ink-900 text-base bg-surface transition-colors"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <p className="mt-1.5 text-xs text-ink-500">
-                  Optional: Set a fundraising goal for your project
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
-                  Create Project
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActiveView('created')}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
