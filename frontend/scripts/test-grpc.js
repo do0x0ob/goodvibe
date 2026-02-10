@@ -62,22 +62,23 @@ async function testConnection() {
     console.log('  - Server:', response.server);
     console.log('');
     
-    // 測試查詢 balance
-    console.log('💰 測試查詢 Balance...');
+    // 測試查詢 owned objects
+    console.log('📦 測試查詢 Owned Objects...');
     const testAddress = '0x5'; // System state object address
     try {
-      const { response: balanceResponse } = await client.stateService.getBalance({
+      const { response: objectsResponse } = await client.stateService.listOwnedObjects({
         owner: testAddress,
-        coin_type: '0x2::sui::SUI', // Surflux 要求必須提供 coin_type
+        limit: 5,
       });
       
-      console.log('✅ Balance 查詢成功！');
+      console.log('✅ Owned Objects 查詢成功！');
       console.log('  - Owner:', testAddress);
-      console.log('  - Coin Type:', balanceResponse.coin_type);
-      console.log('  - Total Balance:', balanceResponse.total_balance);
-      console.log('  - Coin Object Count:', balanceResponse.coin_object_count);
-    } catch (balanceError) {
-      console.log('⚠️  Balance 查詢失敗:', balanceError.message);
+      console.log('  - Objects Count:', objectsResponse.objects?.length || 0);
+      if (objectsResponse.objects?.length > 0) {
+        console.log('  - First Object ID:', objectsResponse.objects[0].object_id);
+      }
+    } catch (objectsError) {
+      console.log('⚠️  Owned Objects 查詢失敗:', objectsError.message);
     }
     console.log('');
     
