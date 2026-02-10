@@ -6,9 +6,13 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "download-protos": "bash scripts/download-protos.sh",
+    "postinstall": "[ ! -d protos/proto ] && npm run download-protos || echo 'Proto files already exist'"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
     "@mysten/dapp-kit": "^0.19.11",

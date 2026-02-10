@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# gRPC proto files (downloaded automatically)
+/protos
+/sui-apis-temp

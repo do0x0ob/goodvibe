@@ -1,3 +1,12 @@
+/**
+ * Sui 查詢函數
+ * 
+ * 這些函數同時支援 HTTP JSON-RPC 和 gRPC 客戶端
+ * - 傳入 SuiClient 實例使用 HTTP JSON-RPC
+ * - 傳入 GrpcSuiClientAdapter 實例使用 gRPC
+ * 
+ * 使用 getSuiClient() 從 ./client.ts 取得自動選擇的客戶端
+ */
 import { SuiClient } from '@mysten/sui/client';
 
 export interface VaultData {
