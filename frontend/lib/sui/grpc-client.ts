@@ -60,29 +60,40 @@ function createGrpcTransport() {
  * 初始化 Sui gRPC 客戶端
  */
 export function initializeSuiGrpcClient(): any {
-  if (!getGrpcEndpoint()) {
-    console.warn('gRPC endpoint not configured. Please set SUI_GRPC_ENDPOINT in .env');
+  const endpoint = getGrpcEndpoint();
+  const apiKey = getGrpcApiKey();
+  
+  console.log('🔧 initializeSuiGrpcClient called');
+  console.log('  - endpoint:', endpoint || '❌ not set');
+  console.log('  - apiKey:', apiKey ? '✅ set' : '❌ not set');
+  
+  if (!endpoint) {
+    console.warn('⚠️  gRPC endpoint not configured. Please set SUI_GRPC_ENDPOINT in .env');
     return null;
   }
 
   try {
+    console.log('  - Loading @mysten/sui/grpc...');
     // 動態載入 @mysten/sui/grpc
-    // 這個可能需要在執行時才能判斷是否可用
     const { SuiGrpcClient } = require('@mysten/sui/grpc');
     
+    console.log('  - Creating gRPC transport...');
     const transport = createGrpcTransport();
     if (!transport) {
+      console.error('❌ Failed to create gRPC transport');
       return null;
     }
 
+    console.log('  - Creating SuiGrpcClient...');
     const client = new SuiGrpcClient({
       network: 'mainnet',
       transport,
     });
 
+    console.log('✅ gRPC client initialized successfully');
     return client;
   } catch (error) {
-    console.error('Failed to initialize gRPC client:', error);
+    console.error('❌ Failed to initialize gRPC client:', error);
     console.warn('Make sure @mysten/sui/grpc is available. Falling back to HTTP JSON-RPC');
     return null;
   }
