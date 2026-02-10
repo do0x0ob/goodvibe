@@ -86,7 +86,7 @@ export async function buildStartSupportingTx(
   
   await client.buildMintTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     usdcCoin,
     amount,
     sender,
@@ -141,7 +141,7 @@ export async function buildIncreaseSupportTx(
 
   await client.buildMintTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     usdcCoin,
     amount: additionalAmount,
     sender,
@@ -183,7 +183,7 @@ export async function buildWithdrawSupportTx(
   
   await client.buildBurnTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     amount,
     sender,
     autoTransfer: true,

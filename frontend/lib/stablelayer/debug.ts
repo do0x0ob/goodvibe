@@ -23,7 +23,7 @@ export async function testMintStableCoin(
   // Build mint transaction using SDK
   const stableCoin = await client.buildMintTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     usdcCoin: tx.object(usdcCoinId),
     amount,
     autoTransfer: false, // Don't auto-transfer, return coin object reference
@@ -56,7 +56,7 @@ export async function testClaimRewards(
   // Build claim transaction using SDK
   const rewardsCoin = await client.buildClaimTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     autoTransfer: false, // Don't auto-transfer, return coin object reference
   });
   
@@ -88,7 +88,7 @@ export async function testBurnStableCoin(
   // SDK automatically handles coin selection from sender's wallet
   await client.buildBurnTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     amount,
     autoTransfer: true,
   });

@@ -11,7 +11,7 @@ export async function buildClaimYieldTx(
   
   await client.buildClaimTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     sender,
     autoTransfer: true,
   });
@@ -29,7 +29,7 @@ export async function buildDonateYieldTx(
   
   const yieldCoin = await client.buildClaimTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     sender,
     autoTransfer: false,
   });
@@ -60,7 +60,7 @@ export async function buildClaimAndDonateToMultipleTx(
   
   const yieldCoin = await client.buildClaimTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     autoTransfer: false,
   });
   
@@ -157,7 +157,7 @@ export async function buildWithdrawAndBurnTx(
   
   await client.buildBurnTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     amount,
     autoTransfer: true,
   });

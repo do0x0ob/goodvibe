@@ -4,11 +4,11 @@ import { STABLE_COIN_TYPE, USDC_TYPE } from '@/config/sui';
 
 /**
  * Test script to verify Stable Layer SDK integration
- * This helps validate that we're using the correct SDK v1.1.0 API
+ * This helps validate that we're using the correct SDK v2.0 API
  */
 
 export function testSDKIntegration() {
-  console.log('🧪 Testing Stable Layer SDK v1.1.0 Integration');
+  console.log('🧪 Testing Stable Layer SDK v2.0 Integration');
   console.log('===============================================\n');
 
   // Test 1: Client initialization
@@ -51,17 +51,17 @@ export function testSDKIntegration() {
       type: USDC_TYPE,
     })(tx);
 
-    // Create the Mint transaction parameters
+    // Create the Mint transaction parameters (v2.0: stableCoinType = full coin type)
     const mintParams = {
       tx,
-      lpToken: 'btcUSDC',  // v1.1.0 parameter
+      stableCoinType: STABLE_COIN_TYPE,
       usdcCoin,
       amount: BigInt(1_000_000),
       autoTransfer: true,
     };
 
     console.log('  ✅ Mint parameters are correct');
-    console.log('    - lpToken: ✓');
+    console.log('    - stableCoinType: ✓');
     console.log('    - usdcCoin: ✓');
     console.log('    - amount: ✓');
     console.log('    - autoTransfer: ✓');
@@ -69,25 +69,25 @@ export function testSDKIntegration() {
     // Create Burn transaction parameters
     const burnParams = {
       tx,
-      lpToken: 'btcUSDC',  // v1.1.0 parameter
+      stableCoinType: STABLE_COIN_TYPE,
       amount: BigInt(500_000),
       autoTransfer: true,
     };
 
     console.log('  ✅ Burn parameters are correct');
-    console.log('    - lpToken: ✓');
+    console.log('    - stableCoinType: ✓');
     console.log('    - amount: ✓');
     console.log('    - autoTransfer: ✓');
 
     // Create Claim transaction parameters
     const claimParams = {
       tx,
-      lpToken: 'btcUSDC',  // v1.1.0 parameter
+      stableCoinType: STABLE_COIN_TYPE,
       autoTransfer: true,
     };
 
     console.log('  ✅ Claim parameters are correct');
-    console.log('    - lpToken: ✓');
+    console.log('    - stableCoinType: ✓');
     console.log('    - autoTransfer: ✓');
 
   } catch (error) {
@@ -110,14 +110,13 @@ export function testSDKIntegration() {
     console.log(`    - ${file}`);
   });
   
-  console.log('  ✅ All files use v1.1.0 API (lpToken)');
-  console.log('  ❌ New API (stableCoinType) is not used (v1.1.0 only)');
+  console.log('  ✅ All files use v2.0 API (stableCoinType)');
 
   // Summary
   console.log('\n📊 Summary');
   console.log('===========');
-  console.log('✅ SDK v1.1.0 integration is correct');
-  console.log('✅ All parameters follow the stable API');
+  console.log('✅ SDK v2.0 integration is correct');
+  console.log('✅ All parameters use stableCoinType (full coin type)');
   console.log('✅ Configuration values are set correctly');
   console.log('\n💡 Next Steps:');
   console.log('   1. Test with actual wallet connection');
@@ -127,14 +126,14 @@ export function testSDKIntegration() {
 }
 
 /**
- * Quick parameter reference for SDK v1.1.0
+ * Quick parameter reference for SDK v2.0
  */
-export const SDK_V1_REFERENCE = {
-  version: '1.1.0',
+export const SDK_V2_REFERENCE = {
+  version: '2.0.0',
   mint: {
     parameters: {
       tx: 'Transaction',
-      lpToken: '"btcUSDC" (string literal)',
+      stableCoinType: 'string (full coin type, e.g. STABLE_COIN_TYPE)',
       usdcCoin: 'TransactionArgument',
       amount: 'bigint',
       sender: 'string (optional)',
@@ -143,7 +142,7 @@ export const SDK_V1_REFERENCE = {
     example: `
 await client.buildMintTx({
   tx,
-  lpToken: 'btcUSDC',
+  stableCoinType: STABLE_COIN_TYPE,
   usdcCoin: coinWithBalance({ balance: amount, type: USDC_TYPE })(tx),
   amount: BigInt(1_000_000),
   autoTransfer: true,
@@ -153,7 +152,7 @@ await client.buildMintTx({
   burn: {
     parameters: {
       tx: 'Transaction',
-      lpToken: '"btcUSDC" (string literal)',
+      stableCoinType: 'string (full coin type)',
       amount: 'bigint (optional, use with all)',
       all: 'boolean (optional, mutually exclusive with amount)',
       sender: 'string (optional)',
@@ -162,7 +161,7 @@ await client.buildMintTx({
     example: `
 await client.buildBurnTx({
   tx,
-  lpToken: 'btcUSDC',
+  stableCoinType: STABLE_COIN_TYPE,
   amount: BigInt(500_000),
   autoTransfer: true,
 });
@@ -171,14 +170,14 @@ await client.buildBurnTx({
   claim: {
     parameters: {
       tx: 'Transaction',
-      lpToken: '"btcUSDC" (string literal)',
+      stableCoinType: 'string (full coin type)',
       sender: 'string (optional)',
       autoTransfer: 'boolean (optional, default: true)',
     },
     example: `
 await client.buildClaimTx({
   tx,
-  lpToken: 'btcUSDC',
+  stableCoinType: STABLE_COIN_TYPE,
   autoTransfer: true,
 });
     `,

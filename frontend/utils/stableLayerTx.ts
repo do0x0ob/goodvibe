@@ -108,7 +108,7 @@ export async function buildDepositTx(
   // Using coinWithBalance as per SDK documentation
   const stableCoin = await client.buildMintTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     usdcCoin: coinWithBalance({
       balance: amount,
       type: USDC_TYPE,
@@ -168,7 +168,7 @@ export async function buildWithdrawTx(
   // Use amount parameter to burn specific amount
   await client.buildBurnTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     amount,
     autoTransfer: true,
   });
@@ -195,7 +195,7 @@ export async function buildClaimAndDistributeTx(
   // autoTransfer: false ensures we get the coin object reference
   const rewardsCoin = await client.buildClaimTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     autoTransfer: false,
   });
   
@@ -239,7 +239,7 @@ export async function buildMintAndCreateVaultTx(
   // Using coinWithBalance as per SDK documentation
   const stableCoin = await client.buildMintTx({
     tx,
-    lpToken: 'btcUSDC',
+    stableCoinType: STABLE_COIN_TYPE,
     usdcCoin: coinWithBalance({
       balance: amount,
       type: USDC_TYPE,

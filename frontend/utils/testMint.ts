@@ -9,7 +9,7 @@ import { SuiClient } from '@mysten/sui/client';
 import { STABLE_COIN_TYPE, USDC_TYPE } from '@/config/sui';
 
 export async function testSimpleMint(senderAddress: string) {
-  console.log('🧪 Testing Simple Mint with SDK v1.1.0');
+  console.log('🧪 Testing Simple Mint with SDK v2.0');
   console.log('=========================================\n');
 
   try {
@@ -40,13 +40,13 @@ export async function testSimpleMint(senderAddress: string) {
     // Step 4: Call buildMintTx
     console.log('Step 4: Calling buildMintTx...');
     console.log('  Parameters:');
-    console.log(`    - lpToken: btcUSDC`);
+    console.log(`    - stableCoinType: STABLE_COIN_TYPE`);
     console.log(`    - amount: 1000000`);
     console.log(`    - autoTransfer: true`);
     
     await client.buildMintTx({
       tx,
-      lpToken: 'btcUSDC',
+      stableCoinType: STABLE_COIN_TYPE,
       usdcCoin,
       amount: BigInt(1_000_000),
       autoTransfer: true,
