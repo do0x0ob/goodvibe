@@ -28,7 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SuiClientProvider networks={networks} defaultNetwork="mainnet">
-        <WalletProvider theme={modernTheme}>
+        <WalletProvider theme={modernTheme} autoConnect>
           <MockDataProvider>
             {children}
           </MockDataProvider>
