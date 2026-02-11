@@ -6,7 +6,7 @@ use sui::coin::Coin;
 use sui::balance::{Self, Balance};
 use sui::event;
 use sui::dynamic_field as df;
-use goodvibe::platform::{Self, DonationPlatform};
+use goodvibe::platform::{Self, DonationPlatform, PlatformAdminCap};
 use goodvibe::support_record::{Self, SupportRecord};
 
 // ==================== Structs ====================
@@ -120,8 +120,10 @@ public struct UpdatePostedEvent has copy, drop {
 // ==================== Core Functions ====================
 
 /// Create a new project
+/// Only platform admin can create projects
 #[allow(lint(self_transfer))]
 public fun create_project<T>(
+    _admin_cap: &PlatformAdminCap,
     platform: &mut DonationPlatform,
     title: vector<u8>,
     description: vector<u8>,
@@ -433,10 +435,12 @@ const EInsufficientBalance: u64 = 1;
 
 #[test_only]
 public fun create_project_for_testing<T>(
+    admin_cap: &PlatformAdminCap,
     platform: &mut DonationPlatform,
     ctx: &mut TxContext
 ) {
     create_project<T>(
+        admin_cap,
         platform,
         b"Test Project",
         b"Test Description",

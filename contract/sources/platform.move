@@ -5,6 +5,11 @@ use sui::event;
 
 // ==================== Structs ====================
 
+/// Platform admin capability - proves platform admin rights
+public struct PlatformAdminCap has key, store {
+    id: UID,
+}
+
 /// Main platform state - shared object that tracks platform-wide statistics
 public struct DonationPlatform has key {
     id: UID,
@@ -28,22 +33,30 @@ public struct PlatformCreated has copy, drop {
 
 /// Initialize the platform (called once on publish)
 fun init(ctx: &mut TxContext) {
+    let sender = ctx.sender();
+    
     let platform = DonationPlatform {
         id: object::new(ctx),
-        admin: ctx.sender(),
+        admin: sender,
         total_projects_created: 0,
         total_vaults_created: 0,
         total_value_locked: 0,
         created_at: ctx.epoch_timestamp_ms(),
     };
     
+    // Create admin capability
+    let admin_cap = PlatformAdminCap {
+        id: object::new(ctx),
+    };
+    
     event::emit(PlatformCreated {
         platform_id: object::id(&platform),
-        admin: ctx.sender(),
+        admin: sender,
         timestamp: ctx.epoch_timestamp_ms(),
     });
     
     transfer::share_object(platform);
+    transfer::transfer(admin_cap, sender);
 }
 
 // ==================== Package Functions ====================
