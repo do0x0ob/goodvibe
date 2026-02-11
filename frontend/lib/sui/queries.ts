@@ -511,8 +511,10 @@ export async function getProjectUpdates(
 
     for (const field of dynamicFields.data) {
       try {
-        const name = (field as any).name;
-        // 解析 name - 它可能是字串或者包含 value 的對象
+        const fieldMeta = field as any;
+        const name = fieldMeta.name;
+        
+        // 解析 updateId (用於識別和排序)
         let updateId: string;
         if (typeof name === 'string') {
           updateId = name;
@@ -528,18 +530,44 @@ export async function getProjectUpdates(
         } else {
           continue;
         }
-        // 獲取 dynamic field 的完整內容
-        const fieldObj = await client.getDynamicFieldObject({
-          parentId: projectId,
-          name: name,
+        
+        // 重要：使用 objectId 直接獲取對象，而不是用 getDynamicFieldObject
+        // 因為 getDynamicFieldObject 可能會有緩存問題
+        const fieldObjectId = fieldMeta.objectId;
+        if (!fieldObjectId) {
+          console.warn(`[getProjectUpdates] Missing objectId for updateId: ${updateId}`);
+          continue;
+        }
+        
+        const fieldObj = await client.getObject({
+          id: fieldObjectId,
+          options: { showContent: true },
         });
-        if (!fieldObj.data) continue;
+        if (!fieldObj.data) {
+          console.warn(`[getProjectUpdates] No data for objectId: ${fieldObjectId}`);
+          continue;
+        }
+        
         const content = fieldObj.data.content as any;
-        if (!content) continue;
+        if (!content || content.dataType !== 'moveObject') {
+          console.warn(`[getProjectUpdates] Invalid content for updateId: ${updateId}`);
+          continue;
+        }
+        
         const fields = content.fields;
-        if (!fields) continue;
+        if (!fields) {
+          console.warn(`[getProjectUpdates] No fields for updateId: ${updateId}`);
+          continue;
+        }
+        
         // Dynamic field structure: { id, name, value }
-        const updateData = fields.value?.fields || fields;
+        // value.fields contains the actual ProjectUpdate data
+        const updateData = fields.value?.fields;
+        if (!updateData) {
+          console.warn(`[getProjectUpdates] Missing value.fields for updateId: ${updateId}`, fields);
+          continue;
+        }
+        
         const title = bytesToString(updateData.title);
         const body = bytesToString(updateData.content);
         const author = updateData.author ?? '';
