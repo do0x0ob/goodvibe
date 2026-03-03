@@ -1,9 +1,9 @@
-import { useSuiClient } from '@mysten/dapp-kit';
 import { useQuery } from '@tanstack/react-query';
 import { getProjectUpdates } from '@/lib/sui/queries';
+import { useCompatClient } from './useCompatClient';
 
 export function useProjectUpdates(projectId: string) {
-  const client = useSuiClient();
+  const client = useCompatClient();
 
   return useQuery({
     queryKey: ['projectUpdates', projectId],

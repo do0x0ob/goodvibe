@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useSupportRecord } from '@/hooks/useSupportRecord';
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useCompatClient } from '@/hooks/useCompatClient';
 import { useQuery } from '@tanstack/react-query';
 import { formatBalance } from '@/utils/formatters';
 
@@ -12,7 +12,7 @@ interface SupportedProjectsListProps {
 }
 
 export const SupportedProjectsList: React.FC<SupportedProjectsListProps> = ({ className = '' }) => {
-  const client = useSuiClient();
+  const client = useCompatClient();
   const { supportedProjects, isLoading: isLoadingProjects } = useSupportRecord();
 
   const { data: projectDetails, isLoading: isLoadingDetails } = useQuery({

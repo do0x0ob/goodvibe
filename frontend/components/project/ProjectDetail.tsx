@@ -27,18 +27,6 @@ function formatTimestamp(timestamp: number): string {
   return `${formattedDate} UTC`;
 }
 
-function formatRelativeTime(timestamp: number): string {
-  // 用於 Supporters 列表的相對時間
-  const now = Date.now();
-  const sec = Math.floor((now - timestamp) / 1000);
-  
-  if (sec < 60) return 'Just now';
-  if (sec < 3600) return `${Math.floor(sec / 60)} min ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)} hours ago`;
-  if (sec < 86400 * 30) return `${Math.floor(sec / 86400)} days ago`;
-  return new Date(timestamp).toLocaleDateString();
-}
-
 interface ProjectDetailProps {
   project: Project;
   isCreator: boolean; // Keep for fallback, but prefer isOwner from useProjectCap
@@ -57,11 +45,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   
   const updates = projectDetail?.updates || [];
   const supporters = projectDetail?.supporters || [];
-  const updatesLoading = detailLoading;
-  const supportersLoading = detailLoading;
-  
-  // 刷新函數 - 重新獲取所有數據
-  const refetchUpdates = refetchDetail;
 
   const tabs = [
     { id: 'about', label: 'Story' },
@@ -181,7 +164,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               {activeTab === 'updates' && (
                 <div className="space-y-12">
                   
-                  {updatesLoading ? (
+                  {detailLoading ? (
                     <div className="space-y-8">
                       {[1, 2].map((i) => (
                         <div key={i} className="animate-pulse space-y-4">
@@ -244,7 +227,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </p>
                   </div>
                   
-                  {supportersLoading ? (
+                  {detailLoading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="h-20 bg-ink-50 rounded-xl animate-pulse"></div>
@@ -301,7 +284,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   projectId={project.id} 
                   projectCapId={projectCapId}
                   onUpdateSuccess={() => {
-                    refetchUpdates();
+                    refetchDetail();
                     setActiveTab('updates'); 
                   }}
                 />

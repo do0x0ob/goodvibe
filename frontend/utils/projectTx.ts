@@ -1,4 +1,4 @@
-import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
+import { Transaction } from '@mysten/sui/transactions';
 import { StableLayerClient } from 'stable-layer-sdk';
 import { PACKAGE_ID, PLATFORM_ID, STABLE_COIN_TYPE, USDC_TYPE } from '@/config/sui';
 
@@ -28,27 +28,6 @@ export function buildCreateProjectTx(
   return tx;
 }
 
-export function buildCreateSupportRecordTx(senderAddress: string): Transaction {
-  const tx = new Transaction();
-  const [record] = tx.moveCall({
-    target: `${PACKAGE_ID}::support_record::create_support_record`,
-    arguments: [],
-  });
-  tx.transferObjects([record], tx.pure.address(senderAddress));
-  return tx;
-}
-
-export async function buildDonateToProjectTx(
-  client: StableLayerClient,
-  suiClient: any,
-  sender: string,
-  projectId: string,
-  amount: bigint,
-  supportRecordId: string
-): Promise<Transaction> {
-  return buildStartSupportingTx(client, suiClient, sender, projectId, supportRecordId, amount);
-}
-
 export async function buildStartSupportingTx(
   client: StableLayerClient,
   suiClient: any,
@@ -61,17 +40,17 @@ export async function buildStartSupportingTx(
   tx.setSender(sender);
   
   // Query user's USDC coins from chain
-  const usdcCoins = await suiClient.getCoins({
+  const { objects } = await suiClient.listCoins({
     owner: sender,
     coinType: USDC_TYPE,
   });
 
-  if (usdcCoins.data.length === 0) {
+  if (objects.length === 0) {
     throw new Error('No USDC in wallet. Please get USDC first.');
   }
 
   // Merge USDC coins and split the required amount
-  const [primaryCoin, ...otherCoins] = usdcCoins.data.map((coin: any) => coin.coinObjectId);
+  const [primaryCoin, ...otherCoins] = objects.map((coin: { objectId: string }) => coin.objectId);
 
   if (otherCoins.length > 0) {
     tx.mergeCoins(tx.object(primaryCoin), otherCoins.map((id: string) => tx.object(id)));
@@ -113,16 +92,16 @@ export async function buildIncreaseSupportTx(
   const tx = new Transaction();
   tx.setSender(sender);
 
-  const usdcCoins = await suiClient.getCoins({
+  const { objects } = await suiClient.listCoins({
     owner: sender,
     coinType: USDC_TYPE,
   });
 
-  if (usdcCoins.data.length === 0) {
+  if (objects.length === 0) {
     throw new Error('No USDC in wallet. Please get USDC first.');
   }
 
-  const [primaryCoin, ...otherCoins] = usdcCoins.data.map((coin: any) => coin.coinObjectId);
+  const [primaryCoin, ...otherCoins] = objects.map((coin: { objectId: string }) => coin.objectId);
 
   if (otherCoins.length > 0) {
     tx.mergeCoins(tx.object(primaryCoin), otherCoins.map((id: string) => tx.object(id)));
@@ -178,27 +157,6 @@ export async function buildWithdrawSupportTx(
     amount,
     sender,
     autoTransfer: true,
-  });
-  
-  return tx;
-}
-
-
-export function buildWithdrawDonationsTx(
-  projectCapId: string,
-  projectId: string,
-  amount: bigint
-): Transaction {
-  const tx = new Transaction();
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::withdraw_donations`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectCapId),
-      tx.object(projectId),
-      tx.pure.u64(amount),
-    ],
   });
   
   return tx;

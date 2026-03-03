@@ -1,4 +1,4 @@
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,11 +10,30 @@ import { executeTransactionWithToast } from '@/utils/transaction';
 import { getUserSupportRecord } from '@/lib/sui/queries';
 import { PACKAGE_ID } from '@/config/sui';
 import { useSupportRecord } from './useSupportRecord';
+import { useCompatClient } from './useCompatClient';
+
+/** 支援操作後的共用 cache 失效 */
+function invalidateAfterSupportOp(
+  queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>,
+  projectId: string,
+  supportRecordId: string,
+  accountAddress: string | undefined
+) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+    queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
+    queryClient.invalidateQueries({ queryKey: ['supportRecord', accountAddress] }),
+    queryClient.invalidateQueries({ queryKey: ['supportedProjects', supportRecordId] }),
+    queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', accountAddress] }),
+    queryClient.invalidateQueries({ queryKey: ['dashboard', accountAddress] }),
+  ]);
+}
 
 export function useSupportOperations() {
-  const client = useSuiClient();
+  const client = useCompatClient();
   const account = useCurrentAccount();
-  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const dAppKit = useDAppKit();
+  const signAndExecute = dAppKit.signAndExecuteTransaction.bind(dAppKit);
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { supportRecordId } = useSupportRecord();
@@ -92,15 +111,8 @@ export function useSupportOperations() {
           errorMessage: 'Failed to start supporting',
           client,
           onSuccess: async () => {
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['supportRecord', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['supportedProjects', supportRecordId] }),
-              queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
-            ]);
-          }
+            await invalidateAfterSupportOp(queryClient, projectId, supportRecordId, account?.address);
+          },
         }
       );
       return success;
@@ -143,15 +155,8 @@ export function useSupportOperations() {
           errorMessage: 'Failed to increase support',
           client,
           onSuccess: async () => {
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['supportRecord', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['supportedProjects', supportRecordId] }),
-              queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
-            ]);
-          }
+            await invalidateAfterSupportOp(queryClient, projectId, supportRecordId, account?.address);
+          },
         }
       );
       return success;
@@ -193,15 +198,8 @@ export function useSupportOperations() {
           errorMessage: 'Failed to withdraw support',
           client,
           onSuccess: async () => {
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['projectDetail', projectId] }),
-              queryClient.invalidateQueries({ queryKey: ['supportRecord', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['supportedProjects', supportRecordId] }),
-              queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account?.address] }),
-              queryClient.invalidateQueries({ queryKey: ['dashboard', account?.address] }),
-            ]);
-          }
+            await invalidateAfterSupportOp(queryClient, projectId, supportRecordId, account?.address);
+          },
         }
       );
       return success;

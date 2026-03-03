@@ -19,8 +19,13 @@ export const MIN_SUPPORT_AMOUNT = BigInt(1_000_000); // 1 USDC (6 decimals)
 
 export const NETWORKS = {
   mainnet: {
-    url: 'https://fullnode.mainnet.sui.io:443',
+    url: 'https://fullnode.mainnet.sui.io',
+    grpcUrl: 'https://fullnode.mainnet.sui.io:443',
+  },
+  testnet: {
+    url: 'https://fullnode.testnet.sui.io',
+    grpcUrl: 'https://fullnode.testnet.sui.io:443',
   },
 };
 
-export const NETWORK = NETWORKS.mainnet;
+export const NETWORK = NETWORKS[SUI_NETWORK as keyof typeof NETWORKS] ?? NETWORKS.mainnet;

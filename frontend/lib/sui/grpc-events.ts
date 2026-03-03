@@ -49,7 +49,7 @@ export async function queryEventsViaGrpc(params: QueryEventsParams): Promise<Eve
   try {
     // 取得服務資訊以獲取當前 checkpoint
     const { response: serviceInfo } = await grpcClient.ledgerService.getServiceInfo({});
-    const currentCheckpoint = serviceInfo.checkpoint_height;
+    const currentCheckpoint = Number(serviceInfo.checkpointHeight ?? 0);
     
     // 從當前 checkpoint 往回掃描
     // 注意：這是簡化版本，實際使用時可能需要更複雜的邏輯
@@ -58,23 +58,25 @@ export async function queryEventsViaGrpc(params: QueryEventsParams): Promise<Eve
 
     for (let i = currentCheckpoint; i >= startCheckpoint && events.length < limit; i--) {
       try {
-        const { response: checkpoint } = await grpcClient.ledgerService.getCheckpoint({
-          sequence_number: i,
+        const { response: checkpointResp } = await grpcClient.ledgerService.getCheckpoint({
+          checkpointId: { oneofKind: 'sequenceNumber', sequenceNumber: BigInt(i) },
         });
+        const checkpointData = checkpointResp.checkpoint;
 
         // 從 checkpoint 中提取事件
-        if (checkpoint.transactions) {
-          for (const tx of checkpoint.transactions) {
+        if (checkpointData?.transactions) {
+          for (const tx of checkpointData.transactions) {
             // 取得完整的交易資料（包含事件）
             if (tx.digest) {
               try {
                 const { response: txDetail } = await grpcClient.ledgerService.getTransaction({
                   digest: tx.digest,
                 });
+                const txEvents = txDetail.transaction?.events?.events ?? [];
 
                 // 過濾符合條件的事件
-                if (txDetail.events) {
-                  const filteredEvents = filterEvents(txDetail.events, params.query);
+                if (txEvents.length > 0) {
+                  const filteredEvents = filterEvents(txEvents, params.query);
                   events.push(...filteredEvents);
                 }
               } catch (txError) {
@@ -170,28 +172,30 @@ export function subscribeToEvents(
 
     try {
       const { response: serviceInfo } = await grpcClient.ledgerService.getServiceInfo({});
-      const currentCheckpoint = serviceInfo.checkpoint_height;
+      const currentCheckpoint = Number(serviceInfo.checkpointHeight ?? 0);
 
       // 如果有新的 checkpoint
       if (currentCheckpoint > lastCheckpoint) {
         // 掃描新的 checkpoints
         for (let i = lastCheckpoint + 1; i <= currentCheckpoint && isActive; i++) {
           try {
-            const { response: checkpoint } = await grpcClient.ledgerService.getCheckpoint({
-              sequence_number: i,
+            const { response: checkpointResp } = await grpcClient.ledgerService.getCheckpoint({
+              checkpointId: { oneofKind: 'sequenceNumber', sequenceNumber: BigInt(i) },
             });
+            const checkpointData = checkpointResp.checkpoint;
 
             // 從 checkpoint 中提取事件
-            if (checkpoint.transactions) {
-              for (const tx of checkpoint.transactions) {
+            if (checkpointData?.transactions) {
+              for (const tx of checkpointData.transactions) {
                 if (tx.digest) {
                   try {
                     const { response: txDetail } = await grpcClient.ledgerService.getTransaction({
                       digest: tx.digest,
                     });
+                    const txEvents = txDetail.transaction?.events?.events ?? [];
 
-                    if (txDetail.events) {
-                      const filteredEvents = filterEvents(txDetail.events, params.query);
+                    if (txEvents.length > 0) {
+                      const filteredEvents = filterEvents(txEvents, params.query);
                       filteredEvents.forEach(onEvent);
                     }
                   } catch (txError) {

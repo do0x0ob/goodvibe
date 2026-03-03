@@ -1,113 +1,75 @@
 /**
- * Sui gRPC 客戶端 - 支援 Surflux gRPC-Web
- * 
- * 使用 @mysten/sui/grpc 和 @protobuf-ts/grpcweb-transport
- * 支援瀏覽器和 Node.js 環境
+ * Sui gRPC 客戶端
+ * 優先使用官方 gRPC (fullnode.mainnet.sui.io)，Surflux 作為備援
  */
-
+import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { GrpcWebFetchTransport } from '@protobuf-ts/grpcweb-transport';
 
-// gRPC 配置
-const getGrpcEndpoint = () => {
-  // 僅在伺服器端讀取，避免 API Key 暴露給瀏覽器
+const OFFICIAL_GRPC_URL = 'https://fullnode.mainnet.sui.io:443';
+
+function getSurfluxEndpoint(): string {
+  if (typeof window !== 'undefined') return '';
   const endpoint = process.env.SUI_GRPC_ENDPOINT || '';
-  // 如果端點包含 :443，移除它並使用 https://
-  if (endpoint.includes(':443')) {
-    return `https://${endpoint.replace(':443', '')}`;
-  }
-  // 如果端點已經有 https://，直接使用
-  if (endpoint.startsWith('https://')) {
-    return endpoint;
-  }
-  // 否則加上 https://
+  if (!endpoint) return '';
+  if (endpoint.includes(':443')) return `https://${endpoint.replace(':443', '')}`;
+  if (endpoint.startsWith('https://')) return endpoint;
   return endpoint ? `https://${endpoint}` : '';
-};
+}
 
-/** 僅讀取伺服器端環境變數，絕不使用 NEXT_PUBLIC_ 以免 API Key 暴露 */
-const getGrpcApiKey = () => {
+function getSurfluxApiKey(): string {
+  if (typeof window !== 'undefined') return '';
   return process.env.SUI_GRPC_TOKEN || '';
-};
-
-// Sui gRPC 客戶端實例
-let grpcClientInstance: any = null;
-
-/**
- * 建立 gRPC Transport（帶 API Key 認證）
- */
-function createGrpcTransport() {
-  const baseUrl = getGrpcEndpoint();
-  const apiKey = getGrpcApiKey();
-
-  if (!baseUrl) {
-    console.warn('SUI_GRPC_ENDPOINT not configured');
-    return null;
-  }
-
-  // 自訂 fetch 函數以注入 API Key
-  const fetchWithApiKey = (input: RequestInfo | URL, init?: RequestInit) => {
-    const headers = new Headers(init?.headers);
-    if (apiKey) {
-      headers.set('x-api-key', apiKey);
-    }
-    return fetch(input, { ...init, headers });
-  };
-
-  return new GrpcWebFetchTransport({
-    baseUrl,
-    fetch: fetchWithApiKey,
-  });
 }
 
-/**
- * 初始化 Sui gRPC 客戶端
- */
-export function initializeSuiGrpcClient(): any {
-  const endpoint = getGrpcEndpoint();
-  const apiKey = getGrpcApiKey();
-  
-  if (!endpoint) {
-    return null;
-  }
+let primaryClient: SuiGrpcClient | null = null;
+let fallbackClient: SuiGrpcClient | null = null;
 
-  try {
-    // 動態載入 @mysten/sui/grpc
-    const { SuiGrpcClient } = require('@mysten/sui/grpc');
-    
-    const transport = createGrpcTransport();
-    if (!transport) {
-      return null;
-    }
-
-    const client = new SuiGrpcClient({
+function getPrimaryGrpcClient(): SuiGrpcClient {
+  if (!primaryClient) {
+    primaryClient = new SuiGrpcClient({
       network: 'mainnet',
-      transport,
+      baseUrl: OFFICIAL_GRPC_URL,
     });
-
-    return client;
-  } catch (error) {
-    console.error('Failed to initialize gRPC client:', error);
-    return null;
   }
+  return primaryClient;
+}
+
+function getFallbackGrpcClient(): SuiGrpcClient | null {
+  const baseUrl = getSurfluxEndpoint();
+  const apiKey = getSurfluxApiKey();
+  if (!baseUrl || !apiKey) return null;
+
+  if (!fallbackClient) {
+    const fetchWithApiKey = (input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      headers.set('x-api-key', apiKey);
+      return fetch(input, { ...init, headers });
+    };
+    fallbackClient = new SuiGrpcClient({
+      network: 'mainnet',
+      transport: new GrpcWebFetchTransport({ baseUrl, fetch: fetchWithApiKey }),
+    });
+  }
+  return fallbackClient;
 }
 
 /**
- * 取得全域 gRPC 客戶端實例（單例模式）
+ * 取得 Sui gRPC 客戶端（主要用官方，備援用 Surflux）
  */
-export function getSuiGrpcClient(): any {
-  if (!grpcClientInstance) {
-    grpcClientInstance = initializeSuiGrpcClient();
-  }
-  return grpcClientInstance;
+export function getSuiGrpcClient(): SuiGrpcClient {
+  return getPrimaryGrpcClient();
 }
 
 /**
- * 檢查 gRPC 是否可用
+ * 取得備援 gRPC 客戶端（Surflux，需設定 SUI_GRPC_ENDPOINT 與 SUI_GRPC_TOKEN）
  */
-export function isGrpcAvailable(): boolean {
-  return !!(getGrpcEndpoint() && getGrpcApiKey());
+export function getSurfluxGrpcClient(): SuiGrpcClient | null {
+  return getFallbackGrpcClient();
 }
 
-export default {
-  getSuiGrpcClient,
-  isGrpcAvailable,
-};
+/**
+ * 是否已設定 Surflux 備援
+ */
+export function isSurfluxConfigured(): boolean {
+  return !!(getSurfluxEndpoint() && getSurfluxApiKey());
+}

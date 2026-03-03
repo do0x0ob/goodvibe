@@ -1,6 +1,5 @@
-import { ThemeVars } from '@mysten/dapp-kit';
-
-export const modernTheme: ThemeVars = {
+// 新 dApp Kit 主題配置（若支援可傳入 DAppKitProvider）
+export const modernTheme = {
 	blurs: {
 		modalOverlay: 'blur(0)',
 	},

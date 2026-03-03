@@ -1,5 +1,4 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiClient } from '@mysten/sui/client';
 import toast from 'react-hot-toast';
 
 const EXPLORER_BASE_URL = 'https://suivision.xyz/txblock';
@@ -48,38 +47,35 @@ export interface ExecuteTransactionOptions {
   onSuccess?: (digest: string) => void | Promise<void>;
   onError?: (error: Error) => void | Promise<void>;
   /** 若 dapp-kit 未回傳 effects.status，用此 client 依 digest 查詢實際狀態 */
-  client?: SuiClient;
+  client?: { waitForTransaction: (opts: any) => Promise<any> };
 }
 
 /** 從交易結果判斷成功與否（保守策略：有 digest 就視為成功，除非明確失敗） */
 async function resolveTransactionStatus(
   result: any,
-  client?: SuiClient
+  client?: { waitForTransaction: (opts: any) => Promise<any> }
 ): Promise<{ success: boolean; error?: string }> {
-  const digest = result.digest;
+  const digest = result.digest ?? result.Transaction?.digest;
   if (!digest) {
     return { success: false, error: 'No transaction digest' };
   }
-  const directStatus = result.effects?.status?.status;
-  if (directStatus) {
-    if (directStatus === 'success') {
-      return { success: true };
-    }
-    if (directStatus === 'failure') {
-      const error = result.effects?.status?.error || 'Transaction failed';
-      return { success: false, error };
-    }
+  if (result.FailedTransaction) {
+    const err = result.FailedTransaction.status?.error?.message ?? 'Transaction failed';
+    return { success: false, error: err };
+  }
+  const directStatus = result.effects?.status?.status ?? result.Transaction?.effects?.status?.success;
+  if (directStatus === true || directStatus === 'success') {
+    return { success: true };
+  }
+  if (directStatus === false || directStatus === 'failure') {
+    const error = result.effects?.status?.error ?? result.FailedTransaction?.status?.error?.message ?? 'Transaction failed';
+    return { success: false, error };
   }
   if (!client) {
     return { success: true };
   }
   try {
-    const tx = await client.waitForTransaction({
-      digest,
-      options: { showEffects: true },
-      timeout: 45_000,
-      pollInterval: 1_500,
-    });
+    const tx = await client.waitForTransaction({ digest });
     const txStatus = (tx as any).effects?.status?.status;
     if (txStatus === 'failure') {
       const error = (tx as any).effects?.status?.error || 'Transaction failed';
@@ -92,7 +88,7 @@ async function resolveTransactionStatus(
 }
 
 export async function executeTransactionWithToast(
-  signAndExecute: (params: any) => Promise<any>,
+  signAndExecute: (params: { transaction: any }) => Promise<any>,
   transaction: Transaction,
   options: ExecuteTransactionOptions = {}
 ): Promise<{ success: boolean; digest?: string }> {
@@ -108,14 +104,8 @@ export async function executeTransactionWithToast(
 
   const toastId = toast.loading(loadingMessage);
   try {
-    const result = await signAndExecute({
-      transaction,
-      options: {
-        showEffects: true,
-        showObjectChanges: true,
-      },
-    });
-    const digest = result.digest;
+    const result = await signAndExecute({ transaction });
+    const digest = result.Transaction?.digest ?? result.digest;
     if (!digest) {
       toast.dismiss(toastId);
       toast.error(errorMessage + ': No transaction digest', {

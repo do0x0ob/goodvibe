@@ -3,7 +3,7 @@
 import { useProject } from "@/hooks/useProjects";
 import { ProjectDetail } from "@/components/project/ProjectDetail";
 import Link from "next/link";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 import { useParams } from "next/navigation";
 import { MIN_SUPPORT_AMOUNT } from "@/config/sui";
 

@@ -1,4 +1,4 @@
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useCompatClient } from './useCompatClient';
 import { useQuery } from '@tanstack/react-query';
 import { Project } from '@/types/project';
 import axios from 'axios';
@@ -149,7 +149,7 @@ export function useProjects() {
 }
 
 export function useProject(projectId: string) {
-    const suiClient = useSuiClient();
+    const suiClient = useCompatClient();
 
     return useQuery({
         queryKey: ['project', projectId],

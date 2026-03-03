@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SuiClient } from '@mysten/sui/client';
-import { NETWORK, PACKAGE_ID } from '@/config/sui';
+import { getSuiClient } from '@/lib/sui/client';
+import { PACKAGE_ID } from '@/config/sui';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
   }
 
-  const client = new SuiClient({ url: NETWORK.url });
+  const client = getSuiClient();
 
   try {
     const eventTypes = [

@@ -1,4 +1,4 @@
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { STABLE_COIN_TYPE } from '@/config/sui';
 import { buildCreateProjectTx, buildPostUpdateTx } from '@/utils/projectTx';

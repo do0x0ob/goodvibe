@@ -1,6 +1,21 @@
-import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { PACKAGE_ID } from '@/config/sui';
+import { structFields, toBigInt } from '@/lib/sui/queries';
+import { useCompatClient } from './useCompatClient';
+
+/** 正規化專案 ID 以利比對 */
+function normId(id: string | { id?: string } | undefined): string {
+  if (id == null) return '';
+  const s = typeof id === 'string' ? id : (id as { id?: string })?.id ?? String(id);
+  if (!s) return '';
+  try {
+    return normalizeSuiAddress(s);
+  } catch {
+    return s.toLowerCase();
+  }
+}
 
 interface SupportedProject {
   projectId: string;
@@ -10,7 +25,7 @@ interface SupportedProject {
 }
 
 export function useSupportRecord() {
-  const client = useSuiClient();
+  const client = useCompatClient();
   const account = useCurrentAccount();
   const address = account?.address;
 
@@ -44,24 +59,30 @@ export function useSupportRecord() {
       const projects: SupportedProject[] = [];
 
       for (const field of dynamicFields.data) {
-        const fieldObject = await client.getObject({
-          id: field.objectId,
-          options: { showContent: true },
-        });
+        try {
+          const fieldObject = await client.getObject({
+            id: field.objectId,
+            options: { showContent: true },
+          });
 
-        if (
-          fieldObject.data?.content &&
-          'fields' in fieldObject.data.content
-        ) {
-          const fields = fieldObject.data.content.fields as any;
-          const value = fields.value.fields;
+          const content = fieldObject.data?.content as Record<string, unknown> | undefined;
+          if (!content) continue;
+
+          const fields = structFields(content);
+          const rawValue = fields.value;
+          const value = structFields(rawValue);
+
+          const projectId = normId((value.project_id ?? fields.name ?? field.name?.value) as string | { id?: string });
+          if (!projectId) continue;
 
           projects.push({
-            projectId: value.project_id,
-            amount: BigInt(value.amount),
-            startedAt: BigInt(value.started_at),
-            lastUpdated: BigInt(value.last_updated),
+            projectId,
+            amount: toBigInt(value.amount),
+            startedAt: toBigInt(value.started_at),
+            lastUpdated: toBigInt(value.last_updated),
           });
+        } catch {
+          continue;
         }
       }
 
@@ -80,9 +101,10 @@ export function useSupportRecord() {
 
 export function useIsSupportingProject(projectId: string) {
   const { supportedProjects } = useSupportRecord();
+  const norm = normId(projectId);
 
   const supportInfo = supportedProjects.find(
-    (p) => p.projectId === projectId
+    (p) => normId(p.projectId) === norm
   );
 
   return {

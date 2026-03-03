@@ -165,8 +165,8 @@ export async function GET() {
                         isActive: p.isActive,
                         balance: p.balance,
                     }));
-            } catch {
-                // fallback below
+            } catch (err) {
+                console.warn('[api/projects] getAllProjects failed:', err instanceof Error ? err.message : err);
             }
         }
 
@@ -186,8 +186,8 @@ export async function GET() {
             balance: p.balance?.toString(),
         }));
         return NextResponse.json(serializedProjects);
-    } catch {
-        // Fallback to mocks on error
+    } catch (err) {
+        console.warn('[api/projects] GET failed, using mocks:', err instanceof Error ? err.message : err);
         const serializedMocks = MOCK_PROJECTS.map(p => ({
             ...p,
             raisedAmount: p.raisedAmount.toString(),

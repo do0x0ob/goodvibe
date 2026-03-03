@@ -4,7 +4,7 @@ import React from 'react';
 import { BtcUSDCPanel } from './BtcUSDCPanel';
 import { SupportedProjectsList } from './SupportedProjectsList';
 import { MyProjectsManager } from './MyProjectsManager';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 
 export const DashboardOverview: React.FC = () => {
   const account = useCurrentAccount();

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../ui/Button';
 import { createStableLayerClient } from '@/utils/stableLayerTx';
@@ -14,7 +14,6 @@ import { useTransaction } from '@/hooks/useTransaction';
  */
 export const ClaimRewardPanel: React.FC = () => {
   const account = useCurrentAccount();
-  const client = useSuiClient();
   const queryClient = useQueryClient();
   const { execute, isExecuting } = useTransaction();
 

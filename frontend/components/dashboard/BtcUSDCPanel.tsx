@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount, useCurrentClient } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 import { formatBalance } from '@/utils/formatters';
 import { USDC_TYPE } from '@/config/sui';
@@ -11,7 +11,7 @@ import { USDC_TYPE } from '@/config/sui';
  * 顯示當前錢包中的 USDC 總量
  */
 export const BtcUSDCPanel: React.FC = () => {
-  const client = useSuiClient();
+  const client = useCurrentClient();
   const account = useCurrentAccount();
   const address = account?.address;
 
@@ -20,12 +20,12 @@ export const BtcUSDCPanel: React.FC = () => {
     queryFn: async () => {
       if (!address) return BigInt(0);
 
-      const coins = await client.getCoins({
+      const { objects } = await client.listCoins({
         owner: address,
         coinType: USDC_TYPE,
       });
 
-      const total = coins.data.reduce(
+      const total = objects.reduce(
         (sum, coin) => sum + BigInt(coin.balance),
         BigInt(0)
       );

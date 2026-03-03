@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ConnectButton } from '@mysten/dapp-kit';
+import { ConnectButton } from '@mysten/dapp-kit-react';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
 
@@ -55,7 +55,7 @@ export const Header: React.FC = () => {
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <ConnectButton connectText="Connect Wallet" className="!bg-ink-900 !text-white !rounded-lg !px-5 !py-2.5 !font-serif !font-medium hover:!bg-ink-700 transition-all shadow-sm" />
+            <ConnectButton className="!bg-ink-900 !text-white !rounded-lg !px-5 !py-2.5 !font-serif !font-medium hover:!bg-ink-700 transition-all shadow-sm" />
           </div>
         </div>
       </div>

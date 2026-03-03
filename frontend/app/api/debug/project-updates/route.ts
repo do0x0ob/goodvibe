@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SuiClient } from '@mysten/sui/client';
-import { NETWORK } from '@/config/sui';
+import { getSuiClient } from '@/lib/sui/client';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -10,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
   }
 
-  const client = new SuiClient({ url: NETWORK.url });
+  const client = getSuiClient();
 
   try {
     // 1. 獲取所有 dynamic fields

@@ -1,13 +1,28 @@
 /**
  * Sui 查詢函數
- * 
- * 這些函數同時支援 HTTP JSON-RPC 和 gRPC 客戶端
- * - 傳入 SuiClient 實例使用 HTTP JSON-RPC
- * - 傳入 GrpcSuiClientAdapter 實例使用 gRPC
- * 
- * 使用 getSuiClient() 從 ./client.ts 取得自動選擇的客戶端
+ * 使用 getSuiClient() 從 ./client.ts 取得 client（SuiGrpcClient + 相容層）
  */
-import { SuiClient } from '@mysten/sui/client';
+/** 相容 v2 json（巢狀為純物件）與舊格式（巢狀為 { fields }） */
+export function structFields(x: unknown): Record<string, unknown> {
+  if (x == null) return {};
+  const o = x as Record<string, unknown>;
+  return (o?.fields ?? o) as Record<string, unknown>;
+}
+
+export function toBigInt(x: unknown): bigint {
+  if (x == null) return BigInt(0);
+  if (typeof x === 'bigint') return x;
+  return BigInt(Number(x));
+}
+
+/** queries 所需的 client 介面（由 createCompatClient 提供） */
+type SuiQueryClient = {
+  getOwnedObjects: (p: any) => Promise<any>;
+  getObject: (p: any) => Promise<any>;
+  getDynamicFields: (p: any) => Promise<any>;
+  getDynamicFieldObject: (p: any) => Promise<any>;
+  queryEvents?: (p: any) => Promise<any>;
+};
 
 export interface VaultData {
   id: string;
@@ -47,18 +62,25 @@ export interface PlatformStatsData {
   createdAt: bigint;
 }
 
-function bytesToString(bytes: number[] | string | null | undefined) {
-  if (!bytes) {
-    return '';
-  }
+/** 將 Move vector<u8> 轉為字串（支援 base64、number[]、Uint8Array） */
+function bytesToString(bytes: unknown): string {
+  if (bytes == null) return '';
   if (typeof bytes === 'string') {
-    return bytes;
+    try {
+      const decoded = atob(bytes);
+      return new TextDecoder().decode(Uint8Array.from(decoded, (c) => c.charCodeAt(0)));
+    } catch {
+      return bytes;
+    }
   }
-  return new TextDecoder().decode(new Uint8Array(bytes));
+  if (Array.isArray(bytes) || bytes instanceof Uint8Array) {
+    return new TextDecoder().decode(new Uint8Array(bytes as Iterable<number>));
+  }
+  return String(bytes);
 }
 
 export async function getUserVault(
-  client: SuiClient,
+  client: SuiQueryClient,
   address: string,
   packageId: string,
   stableCoinType: string
@@ -82,26 +104,24 @@ export async function getUserVault(
 
   const vaultObj = objects.data[0];
   const content = vaultObj.data?.content as any;
-  const fields = content?.fields;
-  if (!fields) {
-    return null;
-  }
+  const fields = structFields(content?.fields ?? content);
+  if (!Object.keys(fields).length) return null;
 
-  const balanceField = fields.balance;
-  const balanceValue = balanceField?.fields?.value ?? '0';
+  const balanceField = structFields(fields.balance);
+  const balanceValue = String(balanceField?.value ?? '0');
 
   return {
-    id: vaultObj.data!.objectId,
-    owner: fields.owner,
+    id: String(vaultObj.data!.objectId ?? ''),
+    owner: String(fields.owner ?? ''),
     balance: BigInt(balanceValue),
     globalDonationPercentage: Number(fields.global_donation_percentage ?? 0),
-    totalDonated: BigInt(fields.total_donated ?? 0),
-    createdAt: BigInt(fields.created_at ?? 0),
+    totalDonated: toBigInt(fields.total_donated),
+    createdAt: toBigInt(fields.created_at),
   };
 }
 
 export async function getVaultAllocations(
-  client: SuiClient,
+  client: SuiQueryClient,
   vaultId: string
 ): Promise<AllocationConfig[]> {
   const dynamicFields = await client.getDynamicFields({
@@ -130,8 +150,8 @@ export async function getVaultAllocations(
       allocations.push({
         projectId,
         percentage: Number(fields.percentage ?? 0),
-        totalDonated: BigInt(fields.total_donated ?? 0),
-        lastDonationAt: BigInt(fields.last_donation_at ?? 0),
+        totalDonated: toBigInt(fields.total_donated),
+        lastDonationAt: toBigInt(fields.last_donation_at),
       });
     } catch {
       continue;
@@ -142,9 +162,10 @@ export async function getVaultAllocations(
 }
 
 export async function getAllProjects(
-  client: SuiClient,
+  client: SuiQueryClient,
   packageId: string
 ): Promise<ProjectData[]> {
+  if (!client.queryEvents) return [];
   const events = await client.queryEvents({
     query: {
       MoveEventType: `${packageId}::project::ProjectCreatedEvent`,
@@ -178,16 +199,14 @@ export async function getAllProjects(
         continue;
       }
 
-      const metadata = fields.metadata?.fields ?? {};
-      const financial = fields.financial?.fields ?? {};
-      const stats = fields.stats?.fields ?? {};
-
-      // 獲取 balance 值
-      const balanceField = financial.balance?.fields;
-      const balanceValue = balanceField?.value ?? '0';
+      const metadata = structFields(fields.metadata);
+      const financial = structFields(fields.financial);
+      const stats = structFields(fields.stats);
+      const balanceField = structFields(financial.balance);
+      const balanceValue = String(balanceField?.value ?? '0');
 
       // 優先使用合約的 created_at，如果為 0 則使用事件時間戳
-      const contractCreatedAt = BigInt(stats.created_at ?? 0);
+      const contractCreatedAt = toBigInt(stats.created_at);
       const finalCreatedAt = contractCreatedAt > BigInt(0) ? contractCreatedAt : BigInt(eventTimestamp);
 
       projects.push({
@@ -197,11 +216,11 @@ export async function getAllProjects(
         category: bytesToString(metadata.category),
         imageUrl: bytesToString(metadata.cover_image_url),
         creator: fields.creator ?? '',
-        raisedAmount: BigInt(financial.total_received ?? 0),
-        totalSupportAmount: BigInt(financial.total_support_amount ?? 0),
+        raisedAmount: toBigInt(financial.total_received),
+        totalSupportAmount: toBigInt(financial.total_support_amount),
         balance: BigInt(balanceValue),
         supporterCount: Number(stats.supporter_count ?? 0),
-        isActive: stats.is_active ?? true,
+        isActive: Boolean(stats.is_active ?? true),
         createdAt: finalCreatedAt,
       });
     } catch {
@@ -214,7 +233,7 @@ export async function getAllProjects(
 
 /** 依 projectId 取得單一專案（與 getAllProjects 相同解析邏輯） */
 export async function getProjectById(
-  client: SuiClient,
+  client: SuiQueryClient,
   projectId: string,
   packageId?: string
 ): Promise<ProjectData | null> {
@@ -228,17 +247,16 @@ export async function getProjectById(
     const fields = content?.fields;
     if (!fields) return null;
 
-    const metadata = fields.metadata?.fields ?? {};
-    const financial = fields.financial?.fields ?? {};
-    const stats = fields.stats?.fields ?? {};
-
-    const balanceField = financial.balance?.fields;
-    const balanceValue = balanceField?.value ?? '0';
+    const metadata = structFields(fields.metadata);
+    const financial = structFields(fields.financial);
+    const stats = structFields(fields.stats);
+    const balanceField = structFields(financial.balance);
+    const balanceValue = String(balanceField?.value ?? '0');
 
     // 獲取 created_at，如果為 0 則嘗試從事件獲取
-    let finalCreatedAt = BigInt(stats.created_at ?? 0);
+    let finalCreatedAt = toBigInt(stats.created_at);
     
-    if (finalCreatedAt === BigInt(0) && packageId) {
+    if (finalCreatedAt === BigInt(0) && packageId && client.queryEvents) {
       try {
         const events = await client.queryEvents({
           query: {
@@ -270,11 +288,11 @@ export async function getProjectById(
       category: bytesToString(metadata.category),
       imageUrl: bytesToString(metadata.cover_image_url),
       creator: fields.creator ?? '',
-      raisedAmount: BigInt(financial.total_received ?? 0),
-      totalSupportAmount: BigInt(financial.total_support_amount ?? 0),
+      raisedAmount: toBigInt(financial.total_received),
+      totalSupportAmount: toBigInt(financial.total_support_amount),
       balance: BigInt(balanceValue),
       supporterCount: Number(stats.supporter_count ?? 0),
-      isActive: stats.is_active ?? true,
+      isActive: Boolean(stats.is_active ?? true),
       createdAt: finalCreatedAt,
     };
   } catch {
@@ -283,7 +301,7 @@ export async function getProjectById(
 }
 
 export async function getPlatformStats(
-  client: SuiClient,
+  client: SuiQueryClient,
   platformId: string
 ): Promise<PlatformStatsData | null> {
   const platform = await client.getObject({
@@ -292,16 +310,14 @@ export async function getPlatformStats(
   });
 
   const content = platform.data?.content as any;
-  const fields = content?.fields;
-  if (!fields) {
-    return null;
-  }
+  const fields = structFields(content?.fields ?? content);
+  if (!Object.keys(fields).length) return null;
 
   return {
     totalProjectsCreated: Number(fields.total_projects_created ?? 0),
     totalVaultsCreated: Number(fields.total_vaults_created ?? 0),
-    totalValueLocked: BigInt(fields.total_value_locked ?? 0),
-    createdAt: BigInt(fields.created_at ?? 0),
+    totalValueLocked: toBigInt(fields.total_value_locked),
+    createdAt: toBigInt(fields.created_at),
   };
 }
 
@@ -313,7 +329,7 @@ export interface SupportBadge {
 }
 
 export async function getUserSupportRecord(
-  client: SuiClient,
+  client: SuiQueryClient,
   address: string,
   packageId: string
 ): Promise<string | null> {
@@ -338,7 +354,7 @@ export async function getUserSupportRecord(
 }
 
 export async function getSupportRecordBadges(
-  client: SuiClient,
+  client: SuiQueryClient,
   recordId: string
 ): Promise<SupportBadge[]> {
   const dynamicFields = await client.getDynamicFields({
@@ -359,16 +375,14 @@ export async function getSupportRecordBadges(
       });
 
       const content = fieldObj.data?.content as any;
-      const fields = content?.fields;
-      if (!fields) {
-        continue;
-      }
+      const fields = structFields(content?.fields ?? content);
+      if (!Object.keys(fields).length) continue;
 
       badges.push({
         projectId,
         projectName: bytesToString(fields.project_name),
-        donationAmount: BigInt(fields.donation_amount ?? 0),
-        donatedAt: BigInt(fields.donated_at ?? 0),
+        donationAmount: toBigInt(fields.donation_amount),
+        donatedAt: toBigInt(fields.donated_at),
       });
     } catch {
       continue;
@@ -395,13 +409,14 @@ const SUPPORT_EVENT_TYPES = [
 
 /** 從鏈上事件彙總單一專案的支持者列表（地址、當前金額、最後更新時間） */
 export async function getProjectSupportersFromEvents(
-  client: SuiClient,
+  client: SuiQueryClient,
   packageId: string,
   projectId: string
 ): Promise<ProjectSupporter[]> {
   const baseType = `${packageId}::project::`;
   const allEvents: Array<{ type: string; parsed: any; timestamp: number }> = [];
 
+  if (!client.queryEvents) return [];
   for (const eventType of SUPPORT_EVENT_TYPES) {
     try {
       const fullType = baseType + eventType;
@@ -468,11 +483,12 @@ export interface ProjectUpdateData {
 
 /** 取得專案的所有進度更新（從事件獲取時間戳 + dynamic fields 獲取內容） */
 export async function getProjectUpdates(
-  client: SuiClient,
+  client: SuiQueryClient,
   projectId: string,
   packageId?: string
 ): Promise<ProjectUpdateData[]> {
   try {
+    if (!client.queryEvents) return [];
     // 首先從事件獲取時間戳映射
     const pkgId = packageId || process.env.NEXT_PUBLIC_PACKAGE_ID || '';
     const eventType = `${pkgId}::project::UpdatePostedEvent`;
@@ -554,23 +570,20 @@ export async function getProjectUpdates(
           continue;
         }
         
-        const fields = content.fields;
-        if (!fields) {
+        const fields = structFields(content?.fields ?? content);
+        if (!Object.keys(fields).length) {
           console.warn(`[getProjectUpdates] No fields for updateId: ${updateId}`);
           continue;
         }
-        
-        // Dynamic field structure: { id, name, value }
-        // value.fields contains the actual ProjectUpdate data
-        const updateData = fields.value?.fields;
-        if (!updateData) {
-          console.warn(`[getProjectUpdates] Missing value.fields for updateId: ${updateId}`, fields);
+        const updateData = structFields(fields.value);
+        if (!Object.keys(updateData).length) {
+          console.warn(`[getProjectUpdates] Missing value for updateId: ${updateId}`, fields);
           continue;
         }
         
         const title = bytesToString(updateData.title);
         const body = bytesToString(updateData.content);
-        const author = updateData.author ?? '';
+        const author = String(updateData.author ?? '');
         const timestamp = timestampMap[updateId] ?? Number(updateData.timestamp ?? 0);
         updates.push({
           id: updateId,
@@ -594,7 +607,7 @@ export async function getProjectUpdates(
 
 /** 取得當前用戶對某專案的 ProjectCap object id（若有） */
 export async function getProjectCapForProject(
-  client: SuiClient,
+  client: SuiQueryClient,
   ownerAddress: string,
   projectId: string,
   packageId: string
@@ -605,12 +618,10 @@ export async function getProjectCapForProject(
     options: { showContent: true },
   });
 
-  const cap = objects.data.find((obj) => {
-    if (obj.data?.content && 'fields' in obj.data.content) {
-      const fields = (obj.data.content as any).fields;
-      return fields?.project_id === projectId;
-    }
-    return false;
+  const cap = objects.data.find((obj: { data?: { content?: unknown } }) => {
+    const content = obj.data?.content as { fields?: { project_id?: string } } | undefined;
+    const fields = structFields(content?.fields ?? content);
+    return fields?.project_id === projectId;
   });
 
   return cap?.data?.objectId ?? null;

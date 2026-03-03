@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useSupportRecord, useIsSupportingProject } from '@/hooks/useSupportRecord';
 import { useSupportOperations } from '@/hooks/useSupportOperations';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatBalance } from '@/utils/formatters';
 import toast from 'react-hot-toast';
 import { MIN_SUPPORT_AMOUNT } from '@/config/sui';

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { useCompatClient } from '@/hooks/useCompatClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatBalance } from '@/utils/formatters';
 import { PACKAGE_ID } from '@/config/sui';
@@ -38,7 +39,7 @@ interface OwnedProjectData {
  * 顯示用戶創建的所有項目及其統計數據，適合放在側邊欄
  */
 export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddress, className = '' }) => {
-  const client = useSuiClient();
+  const client = useCompatClient();
   const account = useCurrentAccount();
   const queryClient = useQueryClient();
   const { execute, isExecuting } = useTransaction();
@@ -126,7 +127,7 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
 
       // 2. 並行獲取每個項目的詳細信息
       const projects = await Promise.all(
-        capsResponse.data.map(async (capObj) => {
+        capsResponse.data.map(async (capObj: { data?: { objectId?: string; content?: unknown } }) => {
           try {
             const capFields = (capObj.data?.content as any)?.fields;
             if (!capFields) return null;
@@ -163,8 +164,8 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
         })
       );
 
-      const validProjects = projects.filter((p): p is OwnedProjectData => p !== null);
-      validProjects.sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+      const validProjects = projects.filter((p: OwnedProjectData | null): p is OwnedProjectData => p !== null);
+      validProjects.sort((a: OwnedProjectData, b: OwnedProjectData) => Number(b.createdAt) - Number(a.createdAt));
       return validProjects;
     },
     enabled: !!userAddress && !!PACKAGE_ID,
@@ -175,8 +176,8 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
   const stats = React.useMemo(() => {
     return {
       totalProjects: myProjects.length,
-      totalSupportReceived: myProjects.reduce((sum, p) => sum + p.totalSupportAmount, BigInt(0)),
-      totalSupporters: myProjects.reduce((sum, p) => sum + p.supporterCount, 0),
+      totalSupportReceived: myProjects.reduce((sum: bigint, p: OwnedProjectData) => sum + p.totalSupportAmount, BigInt(0)),
+      totalSupporters: myProjects.reduce((sum: number, p: OwnedProjectData) => sum + p.supporterCount, 0),
     };
   }, [myProjects]);
 
@@ -208,7 +209,7 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
             <div className="text-xs text-ink-400">Contact admin to create</div>
           </div>
         ) : (
-          myProjects.map((project) => (
+          myProjects.map((project: OwnedProjectData) => (
             <div
               key={project.projectId}
               className="group bg-white/40 hover:bg-white/80 transition-all duration-300 rounded-xl p-4 border border-transparent hover:border-white hover:shadow-sm"

@@ -16,7 +16,7 @@ export async function GET() {
 
     logs.push({
       title: 'Client Type',
-      content: grpcEnabled ? 'gRPC-Web (Surflux)' : 'HTTP JSON-RPC',
+      content: 'SuiGrpcClient + JSON-RPC (僅 queryEvents)',
       status: 'info',
     });
 
@@ -28,7 +28,7 @@ export async function GET() {
       });
       logs.push({
         title: 'Object Query Test',
-        content: `✅ Success - Object ID: ${objectResult.data?.objectId || 'N/A'}`,
+        content: `✅ Success - Object ID: ${(objectResult.data as { objectId?: string })?.objectId ?? 'N/A'}`,
         status: 'success',
         details: JSON.stringify(objectResult, null, 2).slice(0, 500),
       });

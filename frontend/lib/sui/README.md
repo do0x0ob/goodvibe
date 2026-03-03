@@ -1,17 +1,16 @@
-# Sui Client Library - gRPC Support
+# Sui Client Library
 
-這個目錄包含與 Sui 區塊鏈互動的客戶端程式碼，支援 HTTP JSON-RPC 和 gRPC 兩種傳輸方式。
+這個目錄包含與 Sui 區塊鏈互動的客戶端程式碼，一律使用 SuiGrpcClient。
 
 ## 📁 檔案結構
 
 ```
 lib/sui/
-├── client.ts           # 主要客戶端入口，自動選擇傳輸方式
-├── queries.ts          # 查詢函數（支援 gRPC 和 HTTP）
-├── grpc-client.ts      # gRPC 客戶端初始化
-├── grpc-adapter.ts     # gRPC 到 SuiClient API 的適配器
-├── grpc-events.ts      # gRPC 事件查詢實作
-└── README.md          # 本文件
+├── client.ts           # 主要客戶端入口（SuiGrpcClient + 相容層）
+├── client-compat.ts    # 將 v2 API 轉為 queries 所需格式
+├── queries.ts          # 查詢函數
+├── grpc-client.ts      # SuiGrpcClient 初始化
+└── README.md           # 本文件
 ```
 
 ## 🚀 快速開始
@@ -40,10 +39,7 @@ const projects = await getAllProjects(client, PACKAGE_ID);
 ### client.ts
 
 #### `getSuiClient()`
-回傳適合當前環境的 Sui 客戶端。
-
-- 伺服器端 + 設定了 gRPC：回傳 `GrpcSuiClientAdapter`
-- 其他情況：回傳 `SuiClient`（HTTP JSON-RPC）
+回傳 SuiGrpcClient 透過 createCompatClient 包裝的相容層，供 queries 使用。queryEvents 由 JSON-RPC 提供（gRPC 無此 API）。
 
 ```typescript
 import { getSuiClient } from '@/lib/sui/client';
@@ -52,15 +48,7 @@ const client = getSuiClient();
 ```
 
 #### `isGrpcEnabled(): boolean`
-檢查是否啟用 gRPC。
-
-```typescript
-import { isGrpcEnabled } from '@/lib/sui/client';
-
-if (isGrpcEnabled()) {
-  console.log('Using gRPC transport');
-}
-```
+始終為 `true`（已全面使用 gRPC）。
 
 #### `suiClient: SuiClient`
 直接使用 HTTP JSON-RPC 客戶端（不經過自動選擇）。
@@ -74,8 +62,8 @@ const balance = await suiClient.getBalance({ owner: address });
 
 ### grpc-client.ts
 
-#### `getSuiGrpcClients(): SuiGrpcClients | null`
-取得 gRPC 服務客戶端集合。
+#### `getSuiGrpcClient(): SuiGrpcClient`
+取得官方 SuiGrpcClient 實例。
 
 ```typescript
 import { getSuiGrpcClients } from '@/lib/sui/grpc-client';
@@ -123,26 +111,8 @@ stream.cancel();
 
 提供與 `SuiClient` 相容的 API，但使用 gRPC 作為底層傳輸。
 
-#### `getGrpcSuiAdapter(): GrpcSuiClientAdapter | null`
-取得 gRPC 適配器實例。
-
-```typescript
-import { getGrpcSuiAdapter } from '@/lib/sui/grpc-adapter';
-
-const adapter = getGrpcSuiAdapter();
-if (adapter) {
-  const object = await adapter.getObject({ id: '0x123...' });
-}
-```
-
-支援的方法：
-- `getObject(params)`
-- `getOwnedObjects(params)`
-- `queryEvents(params)` - 使用 checkpoint 掃描
-- `getTransactionBlock(params)`
-- `getCheckpoint(params)`
-- `getBalance(params)`
-- `getAllBalances(params)`
+#### `createCompatClient(grpcClient, jsonRpcClient)`
+將 SuiGrpcClient v2 API 轉為 queries 期望的格式。getObject、listOwnedObjects 等使用 gRPC；queryEvents 委派給 JSON-RPC。
 
 ### grpc-events.ts
 
