@@ -1,116 +1,41 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { StableLayerClient } from 'stable-layer-sdk';
-import { PACKAGE_ID, STABLE_COIN_TYPE } from '@/config/sui';
+import { PACKAGE_ID } from '@/config/sui';
+import * as project from '@/lib/generated/goodvibe/project';
 
 export async function buildClaimYieldTx(
   client: StableLayerClient,
-  sender: string
+  sender: string,
+  stableCoinType: string,
 ): Promise<Transaction> {
   const tx = new Transaction();
   tx.setSender(sender);
-  
-  await client.buildClaimTx({
-    tx,
-    stableCoinType: STABLE_COIN_TYPE,
-    sender,
-    autoTransfer: true,
-  });
-  
+
+  await client.buildClaimTx({ tx, stableCoinType, sender, autoTransfer: true });
+
   return tx;
 }
 
 export async function buildDonateYieldTx(
   client: StableLayerClient,
   sender: string,
-  projectId: string
+  projectId: string,
+  stableCoinType: string,
 ): Promise<Transaction> {
   const tx = new Transaction();
   tx.setSender(sender);
-  
-  const yieldCoin = await client.buildClaimTx({
-    tx,
-    stableCoinType: STABLE_COIN_TYPE,
-    sender,
-    autoTransfer: false,
-  });
-  
-  if (!yieldCoin) {
-    throw new Error('No yield available to claim');
-  }
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::donate_yield`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectId),
-      yieldCoin,
-    ],
-  });
-  
-  return tx;
-}
 
-export async function buildClaimAndDonateToMultipleTx(
-  client: StableLayerClient,
-  senderAddress: string,
-  projectIds: string[],
-  donationPercentage: number
-): Promise<Transaction> {
-  const tx = new Transaction();
-  
-  const yieldCoin = await client.buildClaimTx({
-    tx,
-    stableCoinType: STABLE_COIN_TYPE,
-    autoTransfer: false,
-  });
-  
-  if (!yieldCoin) {
-    throw new Error('No yield available to claim');
-  }
-  
-  if (donationPercentage === 0 || projectIds.length === 0) {
-    tx.transferObjects([yieldCoin], tx.pure.address(senderAddress));
-    return tx;
-  }
-  
-  if (donationPercentage === 100) {
-    for (const projectId of projectIds) {
-      const share = tx.splitCoins(yieldCoin, [
-        tx.pure.u64(BigInt(Math.floor(100 / projectIds.length))),
-      ]);
-      
-      tx.moveCall({
-        target: `${PACKAGE_ID}::project::donate_yield`,
-        typeArguments: [STABLE_COIN_TYPE],
-        arguments: [
-          tx.object(projectId),
-          share[0],
-        ],
-      });
-    }
-  } else {
-    const donationAmount = tx.splitCoins(yieldCoin, [
-      tx.pure.u64(BigInt(donationPercentage)),
-    ]);
-    
-    for (const projectId of projectIds) {
-      const share = tx.splitCoins(donationAmount[0], [
-        tx.pure.u64(BigInt(Math.floor(donationPercentage / projectIds.length))),
-      ]);
-      
-      tx.moveCall({
-        target: `${PACKAGE_ID}::project::donate_yield`,
-        typeArguments: [STABLE_COIN_TYPE],
-        arguments: [
-          tx.object(projectId),
-          share[0],
-        ],
-      });
-    }
-    
-    tx.transferObjects([yieldCoin], tx.pure.address(senderAddress));
-  }
-  
+  const yieldCoin = await client.buildClaimTx({ tx, stableCoinType, sender, autoTransfer: false });
+  if (!yieldCoin) throw new Error('No yield available to claim');
+
+  tx.add(
+    project.donateYield({
+      package: PACKAGE_ID,
+      arguments: { project: projectId, yieldCoin },
+      typeArguments: [stableCoinType],
+    })
+  );
+
   return tx;
 }
 
@@ -118,22 +43,20 @@ export function buildWithdrawProjectDonationsTx(
   projectCapId: string,
   projectId: string,
   amount: bigint,
-  recipientAddress: string
+  recipientAddress: string,
+  stableCoinType: string,
 ): Transaction {
   const tx = new Transaction();
-  
-  const [coin] = tx.moveCall({
-    target: `${PACKAGE_ID}::project::withdraw_donations`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectCapId),
-      tx.object(projectId),
-      tx.pure.u64(amount),
-    ],
+
+  tx.add((tx) => {
+    const [coin] = project.withdrawDonations({
+      package: PACKAGE_ID,
+      arguments: { projectCap: projectCapId, project: projectId, amount },
+      typeArguments: [stableCoinType],
+    })(tx);
+    tx.transferObjects([coin], tx.pure.address(recipientAddress));
   });
-  
-  tx.transferObjects([coin], recipientAddress);
-  
+
   return tx;
 }
 
@@ -141,26 +64,20 @@ export async function buildWithdrawAndBurnTx(
   client: StableLayerClient,
   projectCapId: string,
   projectId: string,
-  amount: bigint
+  amount: bigint,
+  stableCoinType: string,
 ): Promise<Transaction> {
   const tx = new Transaction();
-  
-  const [btcUsdcCoin] = tx.moveCall({
-    target: `${PACKAGE_ID}::project::withdraw_donations`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectCapId),
-      tx.object(projectId),
-      tx.pure.u64(amount),
-    ],
-  });
-  
-  await client.buildBurnTx({
-    tx,
-    stableCoinType: STABLE_COIN_TYPE,
-    amount,
-    autoTransfer: true,
-  });
-  
+
+  tx.add(
+    project.withdrawDonations({
+      package: PACKAGE_ID,
+      arguments: { projectCap: projectCapId, project: projectId, amount },
+      typeArguments: [stableCoinType],
+    })
+  );
+
+  await client.buildBurnTx({ tx, stableCoinType, amount, autoTransfer: true });
+
   return tx;
 }

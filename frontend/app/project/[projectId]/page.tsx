@@ -41,11 +41,11 @@ export default function ProjectPage() {
   const isCreator = account?.address === project.creator;
 
   return (
-    <main className="bg-canvas-default min-h-screen pt-20">
+    <main className="bg-canvas-default min-h-screen">
       {/* Floating Back Button */}
-      <Link 
+      <Link
         href="/?view=projects"
-        className="fixed top-24 left-6 z-50 group"
+        className="fixed top-24 left-4 sm:left-6 z-50 group"
       >
         <div className="flex items-center gap-0 group-hover:gap-3 bg-surface/90 backdrop-blur-md rounded-full p-3 group-hover:pl-3 group-hover:pr-5 shadow-lg border border-ink-300/20 hover:shadow-xl transition-all duration-300">
           <div className="w-8 h-8 rounded-full bg-canvas-subtle flex items-center justify-center group-hover:bg-ink-900 transition-colors duration-300">

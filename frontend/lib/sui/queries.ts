@@ -53,6 +53,15 @@ export interface ProjectData {
   balance?: bigint;                  // 當前餘額
   isActive?: boolean;                // 是否活躍
   createdAt?: bigint;                // 創建時間
+  coinType?: string;                 // The T in Project<T>
+}
+
+/** Extract the coin type T from a Project<T> on-chain type string */
+function extractProjectCoinType(objectType: string | undefined): string | undefined {
+  if (!objectType) return undefined;
+  // Pattern: ...::project::Project<COIN_TYPE>
+  const match = objectType.match(/::project::Project<(.+)>$/);
+  return match?.[1] ?? undefined;
 }
 
 export interface PlatformStatsData {
@@ -190,7 +199,7 @@ export async function getAllProjects(
 
       const projectObj = await client.getObject({
         id: projectId,
-        options: { showContent: true },
+        options: { showContent: true, showType: true },
       });
 
       const content = projectObj.data?.content as any;
@@ -209,6 +218,8 @@ export async function getAllProjects(
       const contractCreatedAt = toBigInt(stats.created_at);
       const finalCreatedAt = contractCreatedAt > BigInt(0) ? contractCreatedAt : BigInt(eventTimestamp);
 
+      const coinType = extractProjectCoinType(content?.type ?? projectObj.data?.type);
+
       projects.push({
         id: projectId,
         title: bytesToString(metadata.title),
@@ -222,6 +233,7 @@ export async function getAllProjects(
         supporterCount: Number(stats.supporter_count ?? 0),
         isActive: Boolean(stats.is_active ?? true),
         createdAt: finalCreatedAt,
+        coinType,
       });
     } catch {
       continue;
@@ -240,7 +252,7 @@ export async function getProjectById(
   try {
     const projectObj = await client.getObject({
       id: projectId,
-      options: { showContent: true },
+      options: { showContent: true, showType: true },
     });
 
     const content = projectObj.data?.content as any;
@@ -252,6 +264,7 @@ export async function getProjectById(
     const stats = structFields(fields.stats);
     const balanceField = structFields(financial.balance);
     const balanceValue = String(balanceField?.value ?? '0');
+    const coinType = extractProjectCoinType(content?.type ?? projectObj.data?.type);
 
     // 獲取 created_at，如果為 0 則嘗試從事件獲取
     let finalCreatedAt = toBigInt(stats.created_at);
@@ -294,6 +307,7 @@ export async function getProjectById(
       supporterCount: Number(stats.supporter_count ?? 0),
       isActive: Boolean(stats.is_active ?? true),
       createdAt: finalCreatedAt,
+      coinType,
     };
   } catch {
     return null;

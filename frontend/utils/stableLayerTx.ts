@@ -80,9 +80,10 @@ export function buildWithdrawWithUsdcTx(
   return tx;
 }
 
-export function createStableLayerClient(sender: string) {
-  return new StableLayerClient({
-    network: 'mainnet',
+export async function createStableLayerClient(sender: string) {
+  const network = (process.env.NEXT_PUBLIC_SUI_NETWORK || 'testnet') as 'mainnet' | 'testnet';
+  return StableLayerClient.initialize({
+    network,
     sender,
   });
 }

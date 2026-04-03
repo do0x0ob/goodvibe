@@ -1,7 +1,11 @@
-export const SUI_NETWORK = 'mainnet';
+export const SUI_NETWORK = (process.env.NEXT_PUBLIC_SUI_NETWORK || 'mainnet') as 'mainnet' | 'testnet';
 
+/** Original (V1) package — for type queries, events, StructType filters */
 export const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID || '';
+/** Latest upgraded package — for moveCall targets */
+export const PACKAGE_ID_LATEST = process.env.NEXT_PUBLIC_PACKAGE_ID_LATEST || PACKAGE_ID;
 export const PLATFORM_ID = process.env.NEXT_PUBLIC_PLATFORM_ID || '';
+export const ADMIN_CAP_ID = process.env.NEXT_PUBLIC_ADMIN_CAP_ID || '';
 
 export const USDC_TYPE =
   process.env.NEXT_PUBLIC_USDC_TYPE ||
@@ -28,4 +32,4 @@ export const NETWORKS = {
   },
 };
 
-export const NETWORK = NETWORKS[SUI_NETWORK as keyof typeof NETWORKS] ?? NETWORKS.mainnet;
+export const NETWORK = NETWORKS[SUI_NETWORK] ?? NETWORKS.mainnet;

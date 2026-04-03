@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 interface ManagerPanelProps {
   projectId: string;
   projectCapId: string;
+  coinType?: string;
   onUpdateSuccess?: () => void;
 }
 
@@ -16,13 +17,14 @@ type ManagerTab = 'updates' | 'rewards';
 export const ManagerPanel: React.FC<ManagerPanelProps> = ({
   projectId,
   projectCapId,
+  coinType,
   onUpdateSuccess
 }) => {
   const [activeTab, setActiveTab] = useState<ManagerTab>('updates');
 
   const tabs: { id: ManagerTab; label: string }[] = [
     { id: 'updates', label: 'Updates' },
-    { id: 'rewards', label: 'Rewards' },
+    { id: 'rewards', label: 'Yield' },
   ];
 
   return (
@@ -32,7 +34,7 @@ export const ManagerPanel: React.FC<ManagerPanelProps> = ({
           <h3 className="text-xl font-serif font-bold text-ink-900">Project Management</h3>
           <span className="px-2 py-1 rounded bg-ink-900 text-white text-[10px] uppercase tracking-wider font-bold">Owner</span>
         </div>
-        
+
         {/* Segmented Control */}
         <div className="flex p-1.5 bg-ink-50/50 rounded-xl border border-ink-100/50">
           {tabs.map((tab) => (
@@ -62,9 +64,10 @@ export const ManagerPanel: React.FC<ManagerPanelProps> = ({
               transition={{ duration: 0.2 }}
             >
               <div className="space-y-6">
-                <PostUpdateForm 
-                  projectId={projectId} 
+                <PostUpdateForm
+                  projectId={projectId}
                   projectCapId={projectCapId}
+                  coinType={coinType || ''}
                   onSuccess={onUpdateSuccess}
                   defaultExpanded={true}
                 />
@@ -80,7 +83,11 @@ export const ManagerPanel: React.FC<ManagerPanelProps> = ({
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              <ClaimRewardPanel />
+              <ClaimRewardPanel
+                projectId={projectId}
+                projectCapId={projectCapId}
+                coinType={coinType}
+              />
             </motion.div>
           )}
         </AnimatePresence>

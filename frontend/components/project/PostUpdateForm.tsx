@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
-import toast from 'react-hot-toast';
+import { txError } from '@/utils/txToast';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 
 interface PostUpdateFormProps {
   projectId: string;
   projectCapId: string;
+  coinType: string;
   onSuccess?: () => void;
   defaultExpanded?: boolean;
 }
@@ -15,6 +16,7 @@ interface PostUpdateFormProps {
 export const PostUpdateForm: React.FC<PostUpdateFormProps> = ({
   projectId,
   projectCapId,
+  coinType,
   onSuccess,
   defaultExpanded = false,
 }) => {
@@ -26,11 +28,11 @@ export const PostUpdateForm: React.FC<PostUpdateFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
-      toast.error('Please fill in title and content');
+      txError('Please fill in title and content');
       return;
     }
     const updateId = `update-${Date.now()}`;
-    const result = await postUpdate(projectCapId, projectId, updateId, title.trim(), content.trim());
+    const result = await postUpdate(projectCapId, projectId, updateId, title.trim(), content.trim(), coinType);
     if (result.success) {
       setTitle('');
       setContent('');

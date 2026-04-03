@@ -55,7 +55,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   return (
     <div className="bg-canvas-default min-h-screen pb-24">
       {/* Header Section - Color Block Style */}
-      <div className="bg-canvas-rose border-b border-ink-300/10 pt-16 pb-20 relative overflow-hidden">
+      <div className="bg-canvas-rose border-b border-ink-300/10 pt-24 sm:pt-28 pb-16 sm:pb-20 relative overflow-hidden">
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-ink-900/5 rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3 pointer-events-none" />
@@ -65,7 +65,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-ink-900 text-white uppercase tracking-widest shadow-sm">
               {project.category}
             </span>
-            <h1 className="text-5xl md:text-6xl font-serif text-ink-900 leading-tight tracking-tight">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif text-ink-900 leading-tight tracking-tight">
               {project.title}
             </h1>
             
@@ -280,19 +280,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
               
               {/* Manager Panel (Only for Owner) */}
               {isOwner && projectCapId && (
-                <ManagerPanel 
-                  projectId={project.id} 
+                <ManagerPanel
+                  projectId={project.id}
                   projectCapId={projectCapId}
+                  coinType={project.coinType}
                   onUpdateSuccess={() => {
                     refetchDetail();
-                    setActiveTab('updates'); 
+                    setActiveTab('updates');
                   }}
                 />
               )}
 
               {/* Support Card - Hide for Owner */}
               {!isOwner && (
-                <SupportPanel projectId={project.id} minAmount={minDonationAmount} />
+                <SupportPanel projectId={project.id} coinType={project.coinType || ''} minAmount={minDonationAmount} />
               )}
 
               {/* Stats Card */}

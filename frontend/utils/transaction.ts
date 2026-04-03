@@ -1,86 +1,35 @@
 import { Transaction } from '@mysten/sui/transactions';
-import toast from 'react-hot-toast';
-
-const EXPLORER_BASE_URL = 'https://suivision.xyz/txblock';
-
-export function getExplorerUrl(digest: string, network: 'mainnet' | 'testnet' = 'mainnet'): string {
-  return `${EXPLORER_BASE_URL}/${digest}?network=${network}`;
-}
-
-export function openExplorer(digest: string, network: 'mainnet' | 'testnet' = 'mainnet'): void {
-  window.open(getExplorerUrl(digest, network), '_blank');
-}
-
-interface TransactionToastOptions {
-  loading?: string;
-  success?: string;
-  error?: string;
-  network?: 'mainnet' | 'testnet';
-}
-
-export function showTransactionToast(
-  digest: string,
-  status: 'success' | 'error',
-  options: TransactionToastOptions = {}
-) {
-  const { network = 'mainnet', success: successMsg, error: errorMsg } = options;
-
-  const message = status === 'success' 
-    ? (successMsg || 'Transaction successful')
-    : (errorMsg || 'Transaction failed');
-
-  const toastFn = status === 'success' ? toast.success : toast.error;
-  const icon = status === 'success' ? '✅' : '❌';
-  const duration = status === 'success' ? 5000 : 7000;
-
-  toastFn(message, {
-    duration,
-    icon,
-  });
-}
+import { txLoading, txSuccess, txError } from './txToast';
 
 export interface ExecuteTransactionOptions {
   loadingMessage?: string;
   successMessage?: string;
   errorMessage?: string;
-  network?: 'mainnet' | 'testnet';
   onSuccess?: (digest: string) => void | Promise<void>;
   onError?: (error: Error) => void | Promise<void>;
-  /** 若 dapp-kit 未回傳 effects.status，用此 client 依 digest 查詢實際狀態 */
   client?: { waitForTransaction: (opts: any) => Promise<any> };
 }
 
-/** 從交易結果判斷成功與否（保守策略：有 digest 就視為成功，除非明確失敗） */
+/** Resolve tx status from result (conservative: digest = success unless explicitly failed) */
 async function resolveTransactionStatus(
   result: any,
   client?: { waitForTransaction: (opts: any) => Promise<any> }
 ): Promise<{ success: boolean; error?: string }> {
   const digest = result.digest ?? result.Transaction?.digest;
-  if (!digest) {
-    return { success: false, error: 'No transaction digest' };
-  }
+  if (!digest) return { success: false, error: 'No transaction digest' };
   if (result.FailedTransaction) {
-    const err = result.FailedTransaction.status?.error?.message ?? 'Transaction failed';
-    return { success: false, error: err };
+    return { success: false, error: result.FailedTransaction.status?.error?.message ?? 'Transaction failed' };
   }
   const directStatus = result.effects?.status?.status ?? result.Transaction?.effects?.status?.success;
-  if (directStatus === true || directStatus === 'success') {
-    return { success: true };
-  }
+  if (directStatus === true || directStatus === 'success') return { success: true };
   if (directStatus === false || directStatus === 'failure') {
-    const error = result.effects?.status?.error ?? result.FailedTransaction?.status?.error?.message ?? 'Transaction failed';
-    return { success: false, error };
+    return { success: false, error: result.effects?.status?.error ?? 'Transaction failed' };
   }
-  if (!client) {
-    return { success: true };
-  }
+  if (!client) return { success: true };
   try {
     const tx = await client.waitForTransaction({ digest });
     const txStatus = (tx as any).effects?.status?.status;
-    if (txStatus === 'failure') {
-      const error = (tx as any).effects?.status?.error || 'Transaction failed';
-      return { success: false, error };
-    }
+    if (txStatus === 'failure') return { success: false, error: (tx as any).effects?.status?.error || 'Transaction failed' };
     return { success: true };
   } catch {
     return { success: true };
@@ -93,48 +42,34 @@ export async function executeTransactionWithToast(
   options: ExecuteTransactionOptions = {}
 ): Promise<{ success: boolean; digest?: string }> {
   const {
-    loadingMessage = 'Processing transaction...',
+    loadingMessage,
     successMessage = 'Transaction successful',
     errorMessage = 'Transaction failed',
-    network = 'mainnet',
     onSuccess,
     onError,
     client,
   } = options;
 
-  const toastId = toast.loading(loadingMessage);
+  txLoading(loadingMessage);
   try {
     const result = await signAndExecute({ transaction });
     const digest = result.Transaction?.digest ?? result.digest;
     if (!digest) {
-      toast.dismiss(toastId);
-      toast.error(errorMessage + ': No transaction digest', {
-        duration: 7000,
-        icon: '❌',
-      });
+      txError(errorMessage + ': No digest');
       return { success: false };
     }
 
     const { success, error } = await resolveTransactionStatus(result, client);
-    toast.dismiss(toastId);
     if (success) {
-      toast.success(successMessage, {
-        duration: 5000,
-        icon: '✅',
-      });
+      txSuccess(digest, successMessage);
       if (onSuccess) await onSuccess(digest);
       return { success: true, digest };
     }
-    toast.error(`${errorMessage}: ${error || 'Unknown error'}`, {
-      duration: 7000,
-      icon: '❌',
-    });
+    txError(`${errorMessage}: ${error || 'Unknown error'}`);
     if (onError) await onError(new Error(error || 'Unknown error'));
     return { success: false, digest };
   } catch (error: any) {
-    toast.dismiss(toastId);
-    const errorMsg = error.message || errorMessage;
-    toast.error(errorMsg, { duration: 7000, icon: '❌' });
+    txError(error.message || errorMessage);
     if (onError) await onError(error);
     return { success: false };
   }

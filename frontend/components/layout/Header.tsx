@@ -7,29 +7,24 @@ import { useSearchParams, usePathname } from 'next/navigation';
 
 const navLinkClass = 'text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors';
 
-/**
- * Header nav link by page:
- * - Landing: empty
- * - Projects: Dashboard
- * - Project detail: Dashboard
- * - Dashboard: Projects
- */
-function getHeaderNavLink(pathname: string, view: string | null): 'dashboard' | 'projects' | null {
+type NavLinks = { dashboard?: boolean; projects?: boolean };
+
+function getHeaderNavLinks(pathname: string, view: string | null): NavLinks {
   const isRoot = pathname === '/';
   const isProjectDetail = pathname.startsWith('/project/');
 
-  if (isRoot && view === null) return null; // landing
-  if (isRoot && view === 'dashboard') return 'projects';
-  if (isRoot && view === 'projects') return 'dashboard';
-  if (isProjectDetail) return 'dashboard';
+  if (isRoot && view === null) return {};
+  if (isRoot && view === 'dashboard') return { projects: true };
+  if (isRoot && view === 'projects') return { dashboard: true };
+  if (isProjectDetail) return { dashboard: true, projects: true };
 
-  return null;
+  return {};
 }
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const view = useSearchParams().get('view');
-  const navLink = getHeaderNavLink(pathname, view);
+  const navLinks = getHeaderNavLinks(pathname, view);
 
   return (
     <header className="bg-canvas-default/80 backdrop-blur-md border-b border-ink-300/20 fixed top-0 w-full z-40 transition-colors duration-300">
@@ -42,20 +37,20 @@ export const Header: React.FC = () => {
               </span>
             </Link>
             <nav className="hidden md:flex space-x-6">
-              {navLink === 'dashboard' && (
+              {navLinks.dashboard && (
                 <Link href="/?view=dashboard" className={navLinkClass}>
                   Dashboard
                 </Link>
               )}
-              {navLink === 'projects' && (
+              {navLinks.projects && (
                 <Link href="/?view=projects" className={navLinkClass}>
                   Projects
                 </Link>
               )}
             </nav>
           </div>
-          <div className="flex items-center space-x-4">
-            <ConnectButton className="!bg-ink-900 !text-white !rounded-lg !px-5 !py-2.5 !font-serif !font-medium hover:!bg-ink-700 transition-all shadow-sm" />
+          <div className="flex items-center">
+            <ConnectButton className="goodvibe-connect" />
           </div>
         </div>
       </div>

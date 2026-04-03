@@ -4,13 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { useCompatClient } from '@/hooks/useCompatClient';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { formatBalance } from '@/utils/formatters';
 import { PACKAGE_ID } from '@/config/sui';
 import { getProjectById, getProjectUpdates, getProjectSupportersFromEvents } from '@/lib/sui/queries';
-import { createStableLayerClient } from '@/utils/stableLayerTx';
-import { buildClaimYieldTx } from '@/utils/yieldTx';
-import { useTransaction } from '@/hooks/useTransaction';
 import toast from 'react-hot-toast';
 
 interface MyProjectsManagerProps {
@@ -38,28 +35,98 @@ interface OwnedProjectData {
  * 我的項目管理器 - 垂直版
  * 顯示用戶創建的所有項目及其統計數據，適合放在側邊欄
  */
+const COLLAPSED_COUNT = 3;
+
+function ProjectsList({
+  projects,
+  isLoading,
+  exportingProjectId,
+  onExport,
+}: {
+  projects: OwnedProjectData[];
+  isLoading: boolean;
+  exportingProjectId: string | null;
+  onExport: (projectId: string, title: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const showAll = expanded || projects.length <= COLLAPSED_COUNT;
+  const visible = showAll ? projects : projects.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = projects.length - COLLAPSED_COUNT;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2].map((i) => (
+          <div key={i} className="h-16 bg-white/20 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 bg-white/40 rounded-xl border border-white/50 text-center">
+        <p className="text-ink-500 text-sm">No projects yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {visible.map((project) => (
+        <Link
+          key={project.projectId}
+          href={`/project/${project.projectId}/manage`}
+          className="group flex items-center gap-3 bg-white/40 hover:bg-white/80 rounded-xl px-4 py-3 border border-transparent hover:border-white hover:shadow-sm transition-all duration-200"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif font-medium text-ink-900 text-sm truncate group-hover:text-accent-primary transition-colors">
+                {project.title}
+              </h3>
+              <span className={`shrink-0 inline-block w-1.5 h-1.5 rounded-full ${project.isActive ? 'bg-green-500' : 'bg-ink-300'}`} />
+            </div>
+            <p className="text-[10px] text-ink-400 mt-0.5">
+              {project.supporterCount} supporters &middot; ${formatBalance(project.totalSupportAmount)}
+            </p>
+          </div>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onExport(project.projectId, project.title); }}
+            disabled={exportingProjectId === project.projectId || project.supporterCount === 0}
+            className="shrink-0 w-6 h-6 flex items-center justify-center text-ink-300 hover:text-ink-900 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Export supporters"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+        </Link>
+      ))}
+
+      {!showAll && hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full text-center py-2 text-xs font-serif text-ink-400 hover:text-ink-900 transition-colors"
+        >
+          Show {hiddenCount} more &darr;
+        </button>
+      )}
+      {expanded && projects.length > COLLAPSED_COUNT && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="w-full text-center py-2 text-xs font-serif text-ink-400 hover:text-ink-900 transition-colors"
+        >
+          Show less &uarr;
+        </button>
+      )}
+    </div>
+  );
+}
+
 export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddress, className = '' }) => {
   const client = useCompatClient();
   const account = useCurrentAccount();
-  const queryClient = useQueryClient();
-  const { execute, isExecuting } = useTransaction();
   const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
-
-  // Claim Reward 功能
-  const handleClaimReward = async () => {
-    if (!account?.address) return;
-    const stableClient = createStableLayerClient(account.address);
-    const tx = await buildClaimYieldTx(stableClient, account.address);
-    await execute(tx, {
-      loadingMessage: 'Claiming reward...',
-      successMessage: 'Reward claimed successfully',
-      errorMessage: 'Failed to claim reward',
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: ['btcUSDCBalance', account.address] });
-        await queryClient.invalidateQueries({ queryKey: ['ownedProjects', userAddress] });
-      },
-    });
-  };
 
   // 導出 Active Supporters
   const handleExportSupporters = async (projectId: string, projectTitle: string) => {
@@ -143,6 +210,10 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
 
             if (!projectData) return null;
 
+            // Skip legacy projects (old btcUSDC coin type)
+            const LEGACY_COIN = '0x6d9fc33611f4881a3f5c0cd4899d95a862236ce52b3a38fef039077b0c5b5834::btc_usdc::BtcUSDC';
+            if (!projectData.coinType || projectData.coinType === LEGACY_COIN) return null;
+
             return {
               projectId,
               projectCapId,
@@ -182,10 +253,10 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
   }, [myProjects]);
 
   return (
-    <div className={`rounded-3xl p-8 h-full flex flex-col ${className}`}>
+    <div className={`rounded-3xl p-8 ${className}`}>
       {/* Header Section */}
       <div className="mb-6">
-        <h2 className="text-3xl font-serif font-medium text-ink-900 mb-2 leading-tight">
+        <h2 className="text-2xl font-serif font-medium text-ink-900 mb-2 leading-tight">
           My Projects
         </h2>
         <div className="flex gap-4 text-xs font-bold text-ink-500 uppercase tracking-widest">
@@ -195,65 +266,13 @@ export const MyProjectsManager: React.FC<MyProjectsManagerProps> = ({ userAddres
         </div>
       </div>
 
-      {/* Projects List - Vertical Stack */}
-      <div className="flex-1 overflow-y-auto pr-2 -mr-2 space-y-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-24 bg-white/20 rounded-xl animate-pulse"></div>
-            ))}
-          </div>
-        ) : myProjects.length === 0 ? (
-          <div className="h-40 flex flex-col items-center justify-center p-4 bg-white/40 rounded-xl border border-white/50 text-center">
-            <p className="text-ink-600 mb-2 text-sm">No projects yet.</p>
-            <div className="text-xs text-ink-400">Contact admin to create</div>
-          </div>
-        ) : (
-          myProjects.map((project: OwnedProjectData) => (
-            <div
-              key={project.projectId}
-              className="group bg-white/40 hover:bg-white/80 transition-all duration-300 rounded-xl p-4 border border-transparent hover:border-white hover:shadow-sm"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${project.isActive ? 'bg-ink-900 text-white' : 'bg-ink-200 text-ink-500'}`}>
-                  {project.isActive ? 'Active' : 'Inactive'}
-                </span>
-                <span className="text-xs font-bold text-ink-700">
-                  ${formatBalance(project.totalSupportAmount)}
-                </span>
-              </div>
-
-              <Link href={`/project/${project.projectId}/manage`} className="block mb-3">
-                <h3 className="text-lg font-serif text-ink-900 group-hover:text-ink-700 transition-colors line-clamp-1">
-                  {project.title}
-                </h3>
-                <div className="text-[10px] text-ink-500 mt-1">
-                    {project.supporterCount} Supporters • {project.updatesCount} Updates
-                </div>
-              </Link>
-
-              <div className="flex gap-2">
-                <Link 
-                  href={`/project/${project.projectId}/manage`}
-                  className="flex-1 text-center py-1.5 px-2 text-[10px] font-bold text-ink-900 bg-ink-900/5 hover:bg-ink-900 hover:text-white rounded-lg transition-all"
-                >
-                  Manage
-                </Link>
-                <button
-                  onClick={() => handleExportSupporters(project.projectId, project.title)}
-                  disabled={exportingProjectId === project.projectId || project.supporterCount === 0}
-                  className="w-8 h-8 flex items-center justify-center text-ink-500 hover:text-ink-900 bg-white/50 hover:bg-white rounded-lg transition-all"
-                  title="Export supporters"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* Projects List */}
+      <ProjectsList
+        projects={myProjects}
+        isLoading={isLoading}
+        exportingProjectId={exportingProjectId}
+        onExport={handleExportSupporters}
+      />
     </div>
   );
 };

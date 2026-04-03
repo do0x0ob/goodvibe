@@ -1,16 +1,16 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { PACKAGE_ID, STABLE_COIN_TYPE } from '@/config/sui';
+import * as project from '@/lib/generated/goodvibe/project';
+import * as supportRecord from '@/lib/generated/goodvibe/support_record';
 
 export function buildCreateSupportRecordTx(senderAddress: string): Transaction {
   const tx = new Transaction();
-  
-  const [record] = tx.moveCall({
-    target: `${PACKAGE_ID}::support_record::create_support_record`,
-    arguments: [],
+
+  tx.add((tx) => {
+    const [record] = supportRecord.createSupportRecord({ package: PACKAGE_ID })(tx);
+    tx.transferObjects([record], tx.pure.address(senderAddress));
   });
-  
-  tx.transferObjects([record], tx.pure.address(senderAddress));
-  
+
   return tx;
 }
 
@@ -20,17 +20,19 @@ export function buildStartSupportTx(
   amount: bigint
 ): Transaction {
   const tx = new Transaction();
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::support_project`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectId),
-      tx.object(supportRecordId),
-      tx.pure.u64(amount),
-    ],
-  });
-  
+
+  tx.add(
+    project.supportProject({
+      package: PACKAGE_ID,
+      arguments: {
+        project: projectId,
+        supportRecord: supportRecordId,
+        amount,
+      },
+      typeArguments: [STABLE_COIN_TYPE],
+    })
+  );
+
   return tx;
 }
 
@@ -40,17 +42,19 @@ export function buildIncreaseSupportTx(
   additionalAmount: bigint
 ): Transaction {
   const tx = new Transaction();
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::increase_support`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectId),
-      tx.object(supportRecordId),
-      tx.pure.u64(additionalAmount),
-    ],
-  });
-  
+
+  tx.add(
+    project.increaseSupport({
+      package: PACKAGE_ID,
+      arguments: {
+        project: projectId,
+        supportRecord: supportRecordId,
+        additionalAmount,
+      },
+      typeArguments: [STABLE_COIN_TYPE],
+    })
+  );
+
   return tx;
 }
 
@@ -60,17 +64,19 @@ export function buildDecreaseSupportTx(
   decreaseAmount: bigint
 ): Transaction {
   const tx = new Transaction();
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::decrease_support`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectId),
-      tx.object(supportRecordId),
-      tx.pure.u64(decreaseAmount),
-    ],
-  });
-  
+
+  tx.add(
+    project.decreaseSupport({
+      package: PACKAGE_ID,
+      arguments: {
+        project: projectId,
+        supportRecord: supportRecordId,
+        decreaseAmount,
+      },
+      typeArguments: [STABLE_COIN_TYPE],
+    })
+  );
+
   return tx;
 }
 
@@ -79,15 +85,17 @@ export function buildEndSupportTx(
   supportRecordId: string
 ): Transaction {
   const tx = new Transaction();
-  
-  tx.moveCall({
-    target: `${PACKAGE_ID}::project::end_support`,
-    typeArguments: [STABLE_COIN_TYPE],
-    arguments: [
-      tx.object(projectId),
-      tx.object(supportRecordId),
-    ],
-  });
-  
+
+  tx.add(
+    project.endSupport({
+      package: PACKAGE_ID,
+      arguments: {
+        project: projectId,
+        supportRecord: supportRecordId,
+      },
+      typeArguments: [STABLE_COIN_TYPE],
+    })
+  );
+
   return tx;
 }

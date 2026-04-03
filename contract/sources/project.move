@@ -48,6 +48,14 @@ public struct ProjectCap has key, store {
     project_id: ID,
 }
 
+/// Creator capability - allows holder to create projects without admin
+/// Issued by platform admin to approved addresses
+public struct ProjectCreatorCap has key, store {
+    id: UID,
+    max_projects: u64,       // 0 = unlimited
+    projects_created: u64,
+}
+
 /// Project update - stored as dynamic field
 public struct ProjectUpdate has store, drop {
     title: vector<u8>,
@@ -117,6 +125,18 @@ public struct UpdatePostedEvent has copy, drop {
     timestamp: u64,
 }
 
+public struct CreatorCapGrantedEvent has copy, drop {
+    cap_id: ID,
+    recipient: address,
+    max_projects: u64,
+    timestamp: u64,
+}
+
+public struct CreatorCapRevokedEvent has copy, drop {
+    cap_id: ID,
+    timestamp: u64,
+}
+
 // ==================== Core Functions ====================
 
 /// Create a new project
@@ -174,6 +194,120 @@ public fun create_project<T>(
     
     transfer::share_object(project);
     transfer::transfer(cap, sender);
+}
+
+// ==================== Creator Cap Functions ====================
+
+/// Admin grants a ProjectCreatorCap to an approved address
+#[allow(lint(self_transfer))]
+public fun grant_creator_cap(
+    _admin_cap: &PlatformAdminCap,
+    max_projects: u64,
+    recipient: address,
+    ctx: &mut TxContext,
+) {
+    let cap_uid = object::new(ctx);
+    let cap_id = object::uid_to_inner(&cap_uid);
+
+    let cap = ProjectCreatorCap {
+        id: cap_uid,
+        max_projects,
+        projects_created: 0,
+    };
+
+    event::emit(CreatorCapGrantedEvent {
+        cap_id,
+        recipient,
+        max_projects,
+        timestamp: ctx.epoch_timestamp_ms(),
+    });
+
+    transfer::transfer(cap, recipient);
+}
+
+/// Admin revokes (burns) a ProjectCreatorCap
+public fun revoke_creator_cap(
+    _admin_cap: &PlatformAdminCap,
+    cap: ProjectCreatorCap,
+    ctx: &TxContext,
+) {
+    let cap_id = object::id(&cap);
+    event::emit(CreatorCapRevokedEvent {
+        cap_id,
+        timestamp: ctx.epoch_timestamp_ms(),
+    });
+    let ProjectCreatorCap { id, max_projects: _, projects_created: _ } = cap;
+    id.delete();
+}
+
+/// Holder of ProjectCreatorCap can create a project
+#[allow(lint(self_transfer))]
+public fun create_project_as_creator<T>(
+    creator_cap: &mut ProjectCreatorCap,
+    platform: &mut DonationPlatform,
+    title: vector<u8>,
+    description: vector<u8>,
+    category: vector<u8>,
+    cover_image_url: vector<u8>,
+    ctx: &mut TxContext
+) {
+    // Enforce project limit (0 = unlimited)
+    if (creator_cap.max_projects > 0) {
+        assert!(
+            creator_cap.projects_created < creator_cap.max_projects,
+            ECreatorCapLimitReached
+        );
+    };
+    creator_cap.projects_created = creator_cap.projects_created + 1;
+
+    let project_uid = object::new(ctx);
+    let project_id = object::uid_to_inner(&project_uid);
+    let sender = ctx.sender();
+    let timestamp = ctx.epoch_timestamp_ms();
+
+    let project = Project<T> {
+        id: project_uid,
+        creator: sender,
+        metadata: ProjectMetadata {
+            title,
+            description,
+            category,
+            cover_image_url,
+        },
+        financial: ProjectFinancial {
+            balance: balance::zero(),
+            total_received: 0,
+            total_support_amount: 0,
+        },
+        stats: ProjectStats {
+            supporter_count: 0,
+            is_active: true,
+            created_at: timestamp,
+        },
+    };
+
+    let cap = ProjectCap {
+        id: object::new(ctx),
+        project_id,
+    };
+
+    platform::increment_project_count(platform);
+
+    event::emit(ProjectCreatedEvent {
+        project_id,
+        creator: sender,
+        title: project.metadata.title,
+        category: project.metadata.category,
+        timestamp,
+    });
+
+    transfer::share_object(project);
+    transfer::transfer(cap, sender);
+}
+
+/// Query: get creator cap info (max_projects, projects_created)
+public fun get_creator_cap_info(cap: &ProjectCreatorCap): (u64, u64) {
+    (cap.max_projects, cap.projects_created)
 }
 
 // ==================== Support Functions ====================
@@ -343,6 +477,22 @@ public fun withdraw_donations<T>(
     withdrawn
 }
 
+/// Update project metadata (owner only)
+public fun update_project_metadata<T>(
+    project_cap: &ProjectCap,
+    project: &mut Project<T>,
+    title: vector<u8>,
+    description: vector<u8>,
+    category: vector<u8>,
+    cover_image_url: vector<u8>,
+) {
+    assert!(project_cap.project_id == object::id(project), EInvalidProjectCap);
+    project.metadata.title = title;
+    project.metadata.description = description;
+    project.metadata.category = category;
+    project.metadata.cover_image_url = cover_image_url;
+}
+
 /// Post a progress update
 /// Only visible to supporters (checked in frontend)
 public fun post_update<T>(
@@ -430,6 +580,7 @@ public fun get_update_details(update: &ProjectUpdate): (&vector<u8>, &vector<u8>
 
 const EInvalidProjectCap: u64 = 0;
 const EInsufficientBalance: u64 = 1;
+const ECreatorCapLimitReached: u64 = 2;
 
 // ==================== Tests ====================
 
