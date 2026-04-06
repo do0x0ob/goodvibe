@@ -39,3 +39,7 @@ yarn-error.log*
 
 # Sui / Move
 contract/build/
+contract/package_summaries/
+
+# Docs (local only, not versioned)
+docs/
