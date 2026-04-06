@@ -40,6 +40,11 @@ export const ProjectCap = new MoveStruct({ name: `${$moduleName}::ProjectCap`, f
         id: bcs.Address,
         project_id: bcs.Address
     } });
+export const ProjectCreatorCap = new MoveStruct({ name: `${$moduleName}::ProjectCreatorCap`, fields: {
+        id: bcs.Address,
+        max_projects: bcs.u64(),
+        projects_created: bcs.u64()
+    } });
 export const ProjectUpdate = new MoveStruct({ name: `${$moduleName}::ProjectUpdate`, fields: {
         title: bcs.vector(bcs.u8()),
         content: bcs.vector(bcs.u8()),
@@ -97,6 +102,16 @@ export const UpdatePostedEvent = new MoveStruct({ name: `${$moduleName}::UpdateP
         author: bcs.Address,
         timestamp: bcs.u64()
     } });
+export const CreatorCapGrantedEvent = new MoveStruct({ name: `${$moduleName}::CreatorCapGrantedEvent`, fields: {
+        cap_id: bcs.Address,
+        recipient: bcs.Address,
+        max_projects: bcs.u64(),
+        timestamp: bcs.u64()
+    } });
+export const CreatorCapRevokedEvent = new MoveStruct({ name: `${$moduleName}::CreatorCapRevokedEvent`, fields: {
+        cap_id: bcs.Address,
+        timestamp: bcs.u64()
+    } });
 export interface CreateProjectArguments {
     AdminCap: RawTransactionArgument<string>;
     platform: RawTransactionArgument<string>;
@@ -137,6 +152,126 @@ export function createProject(options: CreateProjectOptions) {
         function: 'create_project',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
+    });
+}
+export interface GrantCreatorCapArguments {
+    AdminCap: RawTransactionArgument<string>;
+    maxProjects: RawTransactionArgument<number | bigint>;
+    recipient: RawTransactionArgument<string>;
+}
+export interface GrantCreatorCapOptions {
+    package?: string;
+    arguments: GrantCreatorCapArguments | [
+        AdminCap: RawTransactionArgument<string>,
+        maxProjects: RawTransactionArgument<number | bigint>,
+        recipient: RawTransactionArgument<string>
+    ];
+}
+/** Admin grants a ProjectCreatorCap to an approved address */
+export function grantCreatorCap(options: GrantCreatorCapOptions) {
+    const packageAddress = options.package ?? '@local-pkg/goodvibe';
+    const argumentsTypes = [
+        null,
+        'u64',
+        'address'
+    ] satisfies (string | null)[];
+    const parameterNames = ["AdminCap", "maxProjects", "recipient"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'project',
+        function: 'grant_creator_cap',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+    });
+}
+export interface RevokeCreatorCapArguments {
+    AdminCap: RawTransactionArgument<string>;
+    cap: RawTransactionArgument<string>;
+}
+export interface RevokeCreatorCapOptions {
+    package?: string;
+    arguments: RevokeCreatorCapArguments | [
+        AdminCap: RawTransactionArgument<string>,
+        cap: RawTransactionArgument<string>
+    ];
+}
+/** Admin revokes (burns) a ProjectCreatorCap */
+export function revokeCreatorCap(options: RevokeCreatorCapOptions) {
+    const packageAddress = options.package ?? '@local-pkg/goodvibe';
+    const argumentsTypes = [
+        null,
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["AdminCap", "cap"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'project',
+        function: 'revoke_creator_cap',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+    });
+}
+export interface CreateProjectAsCreatorArguments {
+    creatorCap: RawTransactionArgument<string>;
+    platform: RawTransactionArgument<string>;
+    title: RawTransactionArgument<number[]>;
+    description: RawTransactionArgument<number[]>;
+    category: RawTransactionArgument<number[]>;
+    coverImageUrl: RawTransactionArgument<number[]>;
+}
+export interface CreateProjectAsCreatorOptions {
+    package?: string;
+    arguments: CreateProjectAsCreatorArguments | [
+        creatorCap: RawTransactionArgument<string>,
+        platform: RawTransactionArgument<string>,
+        title: RawTransactionArgument<number[]>,
+        description: RawTransactionArgument<number[]>,
+        category: RawTransactionArgument<number[]>,
+        coverImageUrl: RawTransactionArgument<number[]>
+    ];
+    typeArguments: [
+        string
+    ];
+}
+/** Holder of ProjectCreatorCap can create a project */
+export function createProjectAsCreator(options: CreateProjectAsCreatorOptions) {
+    const packageAddress = options.package ?? '@local-pkg/goodvibe';
+    const argumentsTypes = [
+        null,
+        null,
+        'vector<u8>',
+        'vector<u8>',
+        'vector<u8>',
+        'vector<u8>'
+    ] satisfies (string | null)[];
+    const parameterNames = ["creatorCap", "platform", "title", "description", "category", "coverImageUrl"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'project',
+        function: 'create_project_as_creator',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface GetCreatorCapInfoArguments {
+    cap: RawTransactionArgument<string>;
+}
+export interface GetCreatorCapInfoOptions {
+    package?: string;
+    arguments: GetCreatorCapInfoArguments | [
+        cap: RawTransactionArgument<string>
+    ];
+}
+/** Query: get creator cap info (max_projects, projects_created) */
+export function getCreatorCapInfo(options: GetCreatorCapInfoOptions) {
+    const packageAddress = options.package ?? '@local-pkg/goodvibe';
+    const argumentsTypes = [
+        null
+    ] satisfies (string | null)[];
+    const parameterNames = ["cap"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'project',
+        function: 'get_creator_cap_info',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
 export interface SupportProjectArguments {
@@ -333,6 +468,48 @@ export function withdrawDonations(options: WithdrawDonationsOptions) {
         package: packageAddress,
         module: 'project',
         function: 'withdraw_donations',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
+export interface UpdateProjectMetadataArguments {
+    projectCap: RawTransactionArgument<string>;
+    project: RawTransactionArgument<string>;
+    title: RawTransactionArgument<number[]>;
+    description: RawTransactionArgument<number[]>;
+    category: RawTransactionArgument<number[]>;
+    coverImageUrl: RawTransactionArgument<number[]>;
+}
+export interface UpdateProjectMetadataOptions {
+    package?: string;
+    arguments: UpdateProjectMetadataArguments | [
+        projectCap: RawTransactionArgument<string>,
+        project: RawTransactionArgument<string>,
+        title: RawTransactionArgument<number[]>,
+        description: RawTransactionArgument<number[]>,
+        category: RawTransactionArgument<number[]>,
+        coverImageUrl: RawTransactionArgument<number[]>
+    ];
+    typeArguments: [
+        string
+    ];
+}
+/** Update project metadata (owner only) */
+export function updateProjectMetadata(options: UpdateProjectMetadataOptions) {
+    const packageAddress = options.package ?? '@local-pkg/goodvibe';
+    const argumentsTypes = [
+        null,
+        null,
+        'vector<u8>',
+        'vector<u8>',
+        'vector<u8>',
+        'vector<u8>'
+    ] satisfies (string | null)[];
+    const parameterNames = ["projectCap", "project", "title", "description", "category", "coverImageUrl"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'project',
+        function: 'update_project_metadata',
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
         typeArguments: options.typeArguments
     });

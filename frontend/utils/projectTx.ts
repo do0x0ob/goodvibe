@@ -53,18 +53,20 @@ export function buildCreateProjectAsCreatorTx(
   const categoryBytes = Array.from(new TextEncoder().encode(category));
   const coverBytes = Array.from(new TextEncoder().encode(coverImageUrl));
 
-  tx.moveCall({
-    target: `${PACKAGE_ID_LATEST}::project::create_project_as_creator`,
-    arguments: [
-      tx.object(creatorCapId),
-      tx.object(PLATFORM_ID),
-      tx.pure.vector('u8', titleBytes),
-      tx.pure.vector('u8', descBytes),
-      tx.pure.vector('u8', categoryBytes),
-      tx.pure.vector('u8', coverBytes),
-    ],
-    typeArguments: [coinType],
-  });
+  tx.add(
+    project.createProjectAsCreator({
+      package: PACKAGE_ID_LATEST,
+      arguments: {
+        creatorCap: creatorCapId,
+        platform: PLATFORM_ID,
+        title: titleBytes,
+        description: descBytes,
+        category: categoryBytes,
+        coverImageUrl: coverBytes,
+      },
+      typeArguments: [coinType],
+    })
+  );
   return tx;
 }
 
