@@ -46,3 +46,7 @@ docs/
 
 # Images (local only, not versioned)
 img/
+
+# Hackathon / disclosure notes (local only)
+HACKATHON_PROMPT.md
+AI_DISCLOSURE.md
