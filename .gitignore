@@ -43,3 +43,6 @@ contract/package_summaries/
 
 # Docs (local only, not versioned)
 docs/
+
+# Images (local only, not versioned)
+img/
