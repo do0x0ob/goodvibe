@@ -262,9 +262,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                               <p className="text-xs font-medium text-ink-400 mt-0.5">{formatTimestamp(supporter.lastUpdated)}</p>
                             </div>
                           </div>
-                          <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-md text-sm tabular-nums border border-ink-100">
-                            ${formatBalance(BigInt(supporter.amount))}
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="font-bold text-ink-900 bg-ink-50 px-2.5 py-1 rounded-md text-sm tabular-nums border border-ink-100">
+                              ${formatBalance(BigInt(supporter.verifiedAmount ?? supporter.amount))}
+                            </span>
+                            {supporter.verification === 'overclaimed' && (
+                              <span className="text-xs text-ink-400 tabular-nums">
+                                Declared ${formatBalance(BigInt(supporter.amount))}, holds ${formatBalance(BigInt(supporter.heldAmount ?? '0'))}
+                              </span>
+                            )}
+                            {supporter.verification === 'unknown' && (
+                              <span className="text-xs text-ink-400 tabular-nums">
+                                Declared ${formatBalance(BigInt(supporter.amount))}, holdings not checked
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -311,9 +323,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                   <div className="flex justify-between items-center pb-4 border-b border-ink-300/10">
                     <span className="text-sm text-ink-500 font-medium">Total Supported Amount</span>
                     <span className="font-bold text-lg text-ink-900 tabular-nums">
-                      ${formatBalance(project.totalSupportAmount || project.raisedAmount)}
+                      ${formatBalance(
+                        projectDetail?.project.verifiedSupportAmount !== undefined
+                          ? BigInt(projectDetail.project.verifiedSupportAmount)
+                          : project.totalSupportAmount || project.raisedAmount
+                      )}
                     </span>
                   </div>
+                  {projectDetail?.project.verifiedSupportAmount !== undefined &&
+                    projectDetail.project.totalSupportAmount !== undefined &&
+                    BigInt(projectDetail.project.totalSupportAmount) > BigInt(projectDetail.project.verifiedSupportAmount) && (
+                    <p className="text-xs text-ink-400 -mt-3 pb-4 border-b border-ink-300/10">
+                      Counts only support backed by brand coins supporters currently hold. Declared total: $
+                      {formatBalance(BigInt(projectDetail.project.totalSupportAmount))}
+                    </p>
+                  )}
                   <div className="flex justify-between items-center pb-4 border-b border-ink-300/10">
                     <span className="text-sm text-ink-500 font-medium">Total Supporters</span>
                     <span className="font-bold text-lg text-ink-900 tabular-nums">{project.supporterCount}</span>

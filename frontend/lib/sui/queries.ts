@@ -485,6 +485,73 @@ export async function getProjectSupportersFromEvents(
   return supporters;
 }
 
+// ==================== Holdings-based support verification ====================
+
+/**
+ * held        declared support is fully backed by brand coins the address holds
+ * overclaimed declared support is larger than the brand-coin balance the address holds
+ * unknown     the balance lookup failed, so nothing can be said about the declaration
+ */
+export type SupportVerification = 'held' | 'overclaimed' | 'unknown';
+
+export interface VerifiedSupporter extends ProjectSupporter {
+  /** Brand-coin balance the address holds right now; null when the lookup failed */
+  heldAmount: bigint | null;
+  /** min(declared, held): the part of the declaration that is backed by coins actually held */
+  verifiedAmount: bigint;
+  verification: SupportVerification;
+}
+
+export type BalanceLookup = (owner: string, coinType: string) => Promise<bigint>;
+
+/**
+ * Declared support is self-reported. `support_project` / `increase_support` record an
+ * amount without moving or checking any coins, and `decrease_support` relies on the
+ * supporter coming back after burning. Yield reaches the project through the brand coin T
+ * itself, so the support that really exists is bounded by the T each address holds.
+ *
+ * This caps every declaration at the supporter's current holdings. If several projects
+ * share one coin type, a single balance can still back a declaration on each of them;
+ * that cross-project case is not resolved here.
+ */
+export async function verifySupportersAgainstHoldings(
+  supporters: ProjectSupporter[],
+  coinType: string | undefined,
+  lookup: BalanceLookup,
+  batchSize = 10,
+): Promise<VerifiedSupporter[]> {
+  if (!coinType) {
+    return supporters.map((s) => ({ ...s, heldAmount: null, verifiedAmount: BigInt(0), verification: 'unknown' }));
+  }
+
+  const results: VerifiedSupporter[] = [];
+  for (let i = 0; i < supporters.length; i += batchSize) {
+    const batch = supporters.slice(i, i + batchSize);
+    const verified = await Promise.all(
+      batch.map(async (s): Promise<VerifiedSupporter> => {
+        try {
+          const held = await lookup(s.address, coinType);
+          const overclaimed = s.amount > held;
+          return {
+            ...s,
+            heldAmount: held,
+            verifiedAmount: overclaimed ? held : s.amount,
+            verification: overclaimed ? 'overclaimed' : 'held',
+          };
+        } catch {
+          return { ...s, heldAmount: null, verifiedAmount: BigInt(0), verification: 'unknown' };
+        }
+      }),
+    );
+    results.push(...verified);
+  }
+  return results;
+}
+
+export function sumVerifiedSupport(supporters: VerifiedSupporter[]): bigint {
+  return supporters.reduce((acc, s) => acc + s.verifiedAmount, BigInt(0));
+}
+
 // ==================== Project updates (dynamic fields) ====================
 
 export interface ProjectUpdateData {
