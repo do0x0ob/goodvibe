@@ -11,6 +11,8 @@ export interface ProjectDetailData {
     creator: string;
     raisedAmount: string;
     totalSupportAmount?: string;
+    /** Sum of declared support, each capped at the brand coin the supporter actually holds */
+    verifiedSupportAmount?: string;
     balance?: string;
     supporterCount: number;
     isActive?: boolean;
@@ -25,7 +27,13 @@ export interface ProjectDetailData {
   }>;
   supporters: Array<{
     address: string;
+    /** Declared amount from the supporter's own SupportRecord events */
     amount: string;
+    /** Brand-coin balance currently held; null when the lookup failed */
+    heldAmount?: string | null;
+    /** min(declared, held) */
+    verifiedAmount?: string;
+    verification?: 'held' | 'overclaimed' | 'unknown';
     lastUpdated: number;
   }>;
 }
